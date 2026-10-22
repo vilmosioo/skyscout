@@ -1,6 +1,6 @@
 # SkyScout Monorepo
 
-Welcome to **SkyScout**, the base of operations for open-source astrophysics software, alert broker clients, and telescope discovery tools designed to follow and filter discoveries from wide-field surveys—including the **Vera C. Rubin Observatory (LSST)** and the **Nancy Grace Roman Space Telescope**.
+Welcome to **SkyScout**, the base of operations for open-source astrophysics software, alert broker clients, and telescope discovery tools designed to follow and filter discoveries from wide-field surveys.
 
 ---
 
@@ -32,7 +32,7 @@ skyscout/
 | Package | Version | Description |
 | :--- | :--- | :--- |
 | [`@skyscout/core`](./packages/core) | `0.1.0` | Shared astronomical mathematics, time transformations, coordinate geometry, and photometry math |
-| [`@skyscout/lasair-client`](./packages/lasair-client) | `0.1.0` | Zero-dependency, fully-typed TypeScript client for the Lasair Rubin alert broker |
+| [`@skyscout/lasair-client`](./packages/lasair-client) | `0.1.0` | Fully-typed TypeScript client for the Lasair Rubin alert broker |
 
 ---
 
