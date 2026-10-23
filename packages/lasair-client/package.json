@@ -1,0 +1,57 @@
+{
+  "name": "@skyscout/lasair-client",
+  "version": "0.1.0",
+  "description": "Fully-typed TypeScript client for the Lasair Rubin / LSST transient alert broker",
+  "license": "BSD-3-Clause",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/skyscout/skyscout.git",
+    "directory": "packages/lasair-client"
+  },
+  "keywords": [
+    "rubin",
+    "lsst",
+    "lasair",
+    "astronomy",
+    "astrophysics",
+    "transients",
+    "supernovae",
+    "alerts",
+    "broker",
+    "skyscout"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/"
+  },
+  "dependencies": {
+    "@skyscout/core": "^0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "tsup": "^8.3.6",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}
