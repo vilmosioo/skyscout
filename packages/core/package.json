@@ -1,6 +1,6 @@
 {
   "name": "@skyscout/core",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Shared astronomical utilities, time conversions, coordinates, and photometry math for SkyScout",
   "license": "BSD-3-Clause",
   "type": "module",

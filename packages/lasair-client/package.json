@@ -1,6 +1,6 @@
 {
   "name": "@skyscout/lasair-client",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Fully-typed TypeScript client for the Lasair Rubin / LSST transient alert broker",
   "license": "BSD-3-Clause",
   "type": "module",
@@ -46,7 +46,7 @@
     "lint": "eslint src/"
   },
   "dependencies": {
-    "@skyscout/core": "^0.1.0"
+    "@skyscout/core": "^0.2.0"
   },
   "devDependencies": {
     "@types/node": "^20.17.0",
