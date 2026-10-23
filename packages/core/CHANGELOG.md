@@ -1,5 +1,11 @@
 # @skyscout/core
 
+## 1.0.0
+
+### Major Changes
+
+- 59f6d90: Updated badge in readme to valid CI link
+
 ## 0.2.0
 
 ### Minor Changes
