@@ -1,5 +1,8 @@
 # SkyScout Monorepo
 
+[![CI](https://img.shields.io/github/actions/workflow/status/vilmosioo/skyscout/ci.yml?branch=develop&style=flat-square&label=CI)](https://github.com/vilmosioo/skyscout/actions)
+[![License](https://img.shields.io/badge/license-BSD--3--Clause-blue.svg?style=flat-square)](./LICENSE)
+
 Welcome to **SkyScout**, the base of operations for open-source astrophysics software, alert broker clients, and telescope discovery tools designed to follow and filter discoveries from wide-field surveys.
 
 ---

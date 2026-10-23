@@ -2,7 +2,7 @@
 
 [![npm version](https://img.shields.io/npm/v/@skyscout/lasair-client.svg?style=flat-square)](https://www.npmjs.com/package/@skyscout/lasair-client)
 [![License](https://img.shields.io/badge/license-BSD--3--Clause-blue.svg?style=flat-square)](./LICENSE)
-[![CI](https://img.shields.io/github/actions/workflow/status/skyscout/skyscout/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/skyscout/skyscout/actions)
+[![CI](https://img.shields.io/github/actions/workflow/status/vilmosioo/skyscout/ci.yml?branch=develop&style=flat-square&label=CI)](https://github.com/vilmosioo/skyscout/actions)
 
 A lightweight, fully-typed TypeScript client for the **Lasair** community alert broker for the **Vera C. Rubin Observatory / Legacy Survey of Space and Time (LSST)**. Part of the **SkyScout** astrophysics ecosystem.
 
