@@ -81,7 +81,7 @@ When PRs containing changesets are merged into `main`:
 1. The **Release** workflow automatically opens a *"chore: version packages"* Pull Request bumping versions and generating `CHANGELOG.md`.
 2. When that Version PR is merged, the workflow automatically publishes the new version to npm with the verified `--provenance` badge.
 
-> **Required GitHub Secret**: Set `NPM_TOKEN` in your GitHub repository's **Settings > Secrets and variables > Actions** with an automation/publish token from [npmjs.com](https://www.npmjs.com/).
+> **Authentication via npm Trusted Publishing**: This repository uses [npm Trusted Publishing](https://docs.npmjs.com/generating-provenance-statements) (OIDC) with cryptographic authentication between GitHub Actions and npm.
 
 ---
 
