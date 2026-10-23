@@ -1,0 +1,51 @@
+{
+  "name": "@skyscout/core",
+  "version": "0.1.0",
+  "description": "Shared astronomical utilities, time conversions, coordinates, and photometry math for SkyScout",
+  "license": "BSD-3-Clause",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/skyscout/skyscout.git",
+    "directory": "packages/core"
+  },
+  "keywords": [
+    "astronomy",
+    "astrophysics",
+    "coordinates",
+    "mjd",
+    "julian-date",
+    "photometry",
+    "skyscout"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "tsup": "^8.3.6",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}
