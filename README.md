@@ -6,7 +6,7 @@ Welcome to **SkyScout**, the base of operations for open-source astrophysics sof
 
 ## Workspace Structure
 
-This repository is organized as a lightweight Turborepo + npm workspaces monorepo:
+This repository is organized as a lightweight Turborepo + npm workspaces monorepo, bundled with [tsup](https://tsup.egoist.dev/) for high-speed dual ESM/CommonJS distribution:
 
 ```text
 skyscout/
@@ -54,9 +54,14 @@ npm run test
 # Type check across all packages
 npm run typecheck
 
-# Build all packages into ESM + CommonJS distribution bundles
+# Build all packages into ESM + CommonJS distribution bundles via tsup
 npm run build
 ```
+
+### Build & Tooling Architecture
+* **[Turborepo](https://turbo.build/)**: Orchestrates dependency task pipelines (`build`, `test`, `typecheck`) with intelligent caching.
+* **[tsup](https://tsup.egoist.dev/)**: Powered by `esbuild`, compiles TypeScript sources into dual ESM (`.js`) and CommonJS (`.cjs`) outputs while bundling TypeScript declaration maps (`.d.ts`, `.d.cts`) in sub-second builds.
+* **[Vitest](https://vitest.dev/)**: Fast, native ESM unit test runner with co-located tests.
 
 ---
 
