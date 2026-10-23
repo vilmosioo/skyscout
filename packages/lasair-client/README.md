@@ -120,6 +120,8 @@ The [Sherlock engine](https://lasair-lsst.readthedocs.io/en/latest/core_function
 
 Runs a SQL query against the Lasair database.
 
+📖 **Official Docs**: [Lasair REST API — `query`](https://lasair-lsst.readthedocs.io/en/latest/core_functions/rest_api.html#query)
+
 ```typescript
 const candidates = await client.query({
   selected: 'objects.diaObjectId, objects.ra, objects.decl',
@@ -130,11 +132,11 @@ const candidates = await client.query({
 });
 ```
 
-*See the [official query documentation](https://lasair-lsst.readthedocs.io/en/latest/core_functions/rest_api.html#query) for syntax limitations and table joins.*
-
 ### 2. `client.cone(options)`
 
 Runs a cone search around a specific coordinate ($\text{RA}, \text{Dec}$ in decimal degrees).
+
+📖 **Official Docs**: [Lasair REST API — `cone`](https://lasair-lsst.readthedocs.io/en/latest/core_functions/rest_api.html#cone)
 
 ```typescript
 const search = await client.cone({
@@ -150,6 +152,8 @@ console.log('Nearest transient:', search.nearest?.object, 'separation:', search.
 ### 3. `client.object(objectId, options?)`
 
 Retrieves the complete Rubin DIA record, including multi-band Difference Image Analysis photometry points (light curves).
+
+📖 **Official Docs**: [Lasair REST API — `object`](https://lasair-lsst.readthedocs.io/en/latest/core_functions/rest_api.html#object)
 
 ```typescript
 import { fluxToAbMag, mjdToDate } from '@skyscout/lasair-client';
@@ -169,6 +173,8 @@ for (const detection of record.diaSourcesList) {
 
 Fetches catalog cross-matches and host galaxy classification from the Sherlock engine.
 
+📖 **Official Docs**: [Lasair REST API — `sherlock`](https://lasair-lsst.readthedocs.io/en/latest/core_functions/rest_api.html#sherlock) | [Sherlock Context Engine Guide](https://lasair-lsst.readthedocs.io/en/latest/core_functions/sherlock.html)
+
 ```typescript
 const sherlock = await client.sherlockObject('170019695992242795');
 
@@ -183,6 +189,8 @@ if (match) {
 ### 5. `client.annotate(options)` & `client.annotateList(annotations)`
 
 Post citizen-science or automated machine-learning classifications back to Lasair:
+
+📖 **Official Docs**: [Lasair REST API — `annotate`](https://lasair-lsst.readthedocs.io/en/latest/core_functions/rest_api.html#annotate)
 
 ```typescript
 await client.annotate({

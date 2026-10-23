@@ -109,6 +109,11 @@ export class LasairClient {
   /**
    * Runs an arbitrary SQL query on the Lasair Rubin / LSST database.
    *
+   * @param options - Query parameters including selected fields, tables, WHERE conditions, and limit/offset.
+   * @returns Array of typed transient candidate records.
+   *
+   * @see Official Query Documentation: {@link https://lasair-lsst.readthedocs.io/en/latest/core_functions/rest_api.html#query}
+   *
    * @example
    * ```ts
    * const candidates = await client.query({
@@ -131,7 +136,22 @@ export class LasairClient {
   }
 
   /**
-   * Performs a cone search around a specific sky position (RA/Dec in degrees).
+   * Performs a cone search around a specific celestial sky position (RA/Dec in degrees).
+   *
+   * @param options - Cone search options including central RA/Dec, radius in arcseconds, and requestType ('all' | 'nearest' | 'count').
+   * @returns Cone search result object with matching objects and angular separations.
+   *
+   * @see Official Cone Search Documentation: {@link https://lasair-lsst.readthedocs.io/en/latest/core_functions/rest_api.html#cone}
+   *
+   * @example
+   * ```ts
+   * const result = await client.cone({
+   *   ra: 52.8238,
+   *   dec: -29.6916,
+   *   radius: 10,
+   *   requestType: 'nearest'
+   * });
+   * ```
    */
   async cone(options: ConeParams): Promise<ConeSearchResult> {
     const payload = {
@@ -144,7 +164,19 @@ export class LasairClient {
   }
 
   /**
-   * Fetches full object data, including DIA photometry light curve measurements.
+   * Fetches full object data, including multi-epoch DIA Difference Image Analysis photometry points (light curves).
+   *
+   * @param objectId - Rubin diaObjectId (64-bit integer or string).
+   * @param options - Optional flags: `lite` (exclude heavy metadata) and `lasairAdded` (include Lasair metadata).
+   * @returns Complete Rubin DIA object record with detections list.
+   *
+   * @see Official Object Documentation: {@link https://lasair-lsst.readthedocs.io/en/latest/core_functions/rest_api.html#object}
+   *
+   * @example
+   * ```ts
+   * const record = await client.object('170019695992242795');
+   * console.log(record.diaSourcesList);
+   * ```
    */
   async object(
     objectId: string | number,
@@ -159,7 +191,20 @@ export class LasairClient {
   }
 
   /**
-   * Queries the Sherlock context database for a specific Rubin object ID.
+   * Queries the Sherlock context database for a specific Rubin DIA object ID.
+   *
+   * @param objectId - Rubin diaObjectId (64-bit integer or string).
+   * @param options - Optional configuration flags (e.g. `lite`).
+   * @returns Sherlock classification and catalog cross-matches for the object.
+   *
+   * @see Official Sherlock API Documentation: {@link https://lasair-lsst.readthedocs.io/en/latest/core_functions/rest_api.html#sherlock}
+   * @see Official Sherlock Overview: {@link https://lasair-lsst.readthedocs.io/en/latest/core_functions/sherlock.html}
+   *
+   * @example
+   * ```ts
+   * const context = await client.sherlockObject('170019695992242795');
+   * console.log(context.classification, context.crossmatches);
+   * ```
    */
   async sherlockObject(
     objectId: string | number,
@@ -173,7 +218,21 @@ export class LasairClient {
   }
 
   /**
-   * Queries the Sherlock classification engine for any arbitrary position in the sky.
+   * Queries the Sherlock contextual classification engine for any arbitrary celestial coordinates in the sky.
+   *
+   * @param ra - Right Ascension in decimal degrees.
+   * @param dec - Declination in decimal degrees.
+   * @param options - Optional configuration flags (e.g. `lite`).
+   * @returns Sherlock classification and catalog cross-matches for the coordinates.
+   *
+   * @see Official Sherlock API Documentation: {@link https://lasair-lsst.readthedocs.io/en/latest/core_functions/rest_api.html#sherlock}
+   * @see Official Sherlock Overview: {@link https://lasair-lsst.readthedocs.io/en/latest/core_functions/sherlock.html}
+   *
+   * @example
+   * ```ts
+   * const context = await client.sherlockPosition(52.8238, -29.6916);
+   * console.log(context.classification);
+   * ```
    */
   async sherlockPosition(
     ra: number,
@@ -189,7 +248,23 @@ export class LasairClient {
   }
 
   /**
-   * Submits a user or machine annotation back to the Lasair broker.
+   * Submits a user or machine classification annotation back to the Lasair broker.
+   *
+   * @param options - Annotation payload including objectId, topic, classification, and explanation.
+   * @returns Status response from the Lasair server.
+   *
+   * @see Official Annotate Documentation: {@link https://lasair-lsst.readthedocs.io/en/latest/core_functions/rest_api.html#annotate}
+   *
+   * @example
+   * ```ts
+   * await client.annotate({
+   *   objectId: '170019695992242795',
+   *   topic: 'my_survey_topic',
+   *   classification: 'SN Ia',
+   *   version: '1.0',
+   *   explanation: 'Fast rise time consistent with Type Ia supernova'
+   * });
+   * ```
    */
   async annotate(options: AnnotationParams): Promise<Record<string, unknown>> {
     const payload = {
@@ -205,7 +280,12 @@ export class LasairClient {
   }
 
   /**
-   * Submits a batch of annotations to the Lasair broker.
+   * Submits a batch of user or machine annotations to the Lasair broker.
+   *
+   * @param annotations - Array of annotation objects.
+   * @returns Status response from the Lasair server.
+   *
+   * @see Official Annotate Documentation: {@link https://lasair-lsst.readthedocs.io/en/latest/core_functions/rest_api.html#annotate}
    */
   async annotateList(annotations: AnnotationParams[]): Promise<Record<string, unknown>> {
     const formatted = annotations.map((ann, idx) => {
