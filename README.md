@@ -77,7 +77,7 @@ npm run changeset
 Select the package, choose the semver bump type (`patch`, `minor`, `major`), and enter a brief description of the change. This generates a markdown file in `.changeset/`.
 
 ### 2. Automated Publishing via GitHub Actions
-When PRs containing changesets are merged into `main`:
+When PRs containing changesets are merged into `develop`:
 1. The **Release** workflow automatically opens a *"chore: version packages"* Pull Request bumping versions and generating `CHANGELOG.md`.
 2. When that Version PR is merged, the workflow automatically publishes the new version to npm with the verified `--provenance` badge.
 
