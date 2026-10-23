@@ -1,5 +1,16 @@
 # @skyscout/lasair-client
 
+## 2.0.0
+
+### Major Changes
+
+- 59f6d90: Updated badge in readme to valid CI link
+
+### Patch Changes
+
+- Updated dependencies [59f6d90]
+  - @skyscout/core@1.0.0
+
 ## 1.0.0
 
 ### Major Changes
