@@ -1,8 +1,10 @@
 # @skyscout/core
 
-Telescope-agnostic astronomical mathematics, celestial coordinate conversions, time transformations, and photometry calculations for **SkyScout**.
+[![npm version](https://img.shields.io/npm/v/@skyscout/core.svg?style=flat-square)](https://www.npmjs.com/package/@skyscout/core)
+[![License](https://img.shields.io/badge/license-BSD--3--Clause-blue.svg?style=flat-square)](./LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/vilmosioo/skyscout/ci.yml?branch=develop&style=flat-square&label=CI)](https://github.com/vilmosioo/skyscout/actions)
 
-[![License: BSD-3-Clause](https://img.shields.io/badge/License-BSD--3--Clause-blue.svg)](LICENSE)
+Telescope-agnostic astronomical mathematics, celestial coordinate conversions, time transformations, and photometry calculations for **SkyScout**.
 
 ## Features
 
