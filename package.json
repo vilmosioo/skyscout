@@ -13,9 +13,12 @@
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
-    "changeset": "node --experimental-require-module ./node_modules/@changesets/cli/bin.js",
-    "version-packages": "node --experimental-require-module ./node_modules/@changesets/cli/bin.js version",
-    "release": "node --experimental-require-module ./node_modules/@changesets/cli/bin.js publish"
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "changeset publish"
+  },
+  "overrides": {
+    "human-id": "2.0.1"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.12",
