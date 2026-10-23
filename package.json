@@ -1,0 +1,28 @@
+{
+  "name": "skyscout-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Monorepo for SkyScout: Open-source astrophysics clients, alert tools, and telescope scouts",
+  "type": "module",
+  "packageManager": "npm@8.3.2",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "changeset": "node --experimental-require-module ./node_modules/@changesets/cli/bin.js",
+    "version-packages": "node --experimental-require-module ./node_modules/@changesets/cli/bin.js version",
+    "release": "node --experimental-require-module ./node_modules/@changesets/cli/bin.js publish"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.27.12",
+    "@types/node": "^20.17.0",
+    "tsup": "^8.3.6",
+    "turbo": "^2.4.4",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}
