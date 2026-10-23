@@ -8,5 +8,5 @@
     { "path": "./packages/lasair-client" }
   ],
   "files": [],
-  "exclude": ["node_modules", "dist"]
+  "include": []
 }
