@@ -14,3 +14,10 @@ export {
 export function getLasairObjectUrl(diaObjectId: string | number): string {
   return `https://lasair.lsst.ac.uk/object/${diaObjectId}/`;
 }
+
+/**
+ * Returns the official Lasair web URL for a given Rubin DIA source/detection ID.
+ */
+export function getLasairSourceUrl(diaSourceId: string | number): string {
+  return `https://lasair.lsst.ac.uk/source/${diaSourceId}/`;
+}
