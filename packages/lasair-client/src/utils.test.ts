@@ -4,6 +4,7 @@ import {
   fluxToAbMag,
   formatCoordinates,
   getLasairObjectUrl,
+  getLasairSourceUrl,
   mjdToDate,
 } from './utils';
 
@@ -20,6 +21,12 @@ describe('Astro Utilities', () => {
   it('generates correct Lasair web links', () => {
     expect(getLasairObjectUrl('170019695992242795')).toBe(
       'https://lasair.lsst.ac.uk/object/170019695992242795/'
+    );
+  });
+
+  it('generates correct Lasair source detection links', () => {
+    expect(getLasairSourceUrl('220019695992242899')).toBe(
+      'https://lasair.lsst.ac.uk/source/220019695992242899/'
     );
   });
 
