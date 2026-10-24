@@ -3,6 +3,7 @@ import {
   dateToMjd,
   fluxToAbMag,
   formatCoordinates,
+  getLasairCutoutUrl,
   getLasairObjectUrl,
   getLasairSourceUrl,
   mjdToDate,
@@ -27,6 +28,22 @@ describe('Astro Utilities', () => {
   it('generates correct Lasair source detection links', () => {
     expect(getLasairSourceUrl('220019695992242899')).toBe(
       'https://lasair.lsst.ac.uk/source/220019695992242899/'
+    );
+  });
+
+  it('generates correct Lasair FITS cutout links for triplets', () => {
+    expect(getLasairCutoutUrl('220019695992242899', 'Difference')).toBe(
+      'https://lasair.lsst.ac.uk/fits/220019695992242899_cutoutDifference'
+    );
+    expect(getLasairCutoutUrl('220019695992242899', 'Template')).toBe(
+      'https://lasair.lsst.ac.uk/fits/220019695992242899_cutoutTemplate'
+    );
+    expect(getLasairCutoutUrl('220019695992242899', 'Science')).toBe(
+      'https://lasair.lsst.ac.uk/fits/220019695992242899_cutoutScience'
+    );
+    // Defaults to Difference cutout
+    expect(getLasairCutoutUrl('220019695992242899')).toBe(
+      'https://lasair.lsst.ac.uk/fits/220019695992242899_cutoutDifference'
     );
   });
 

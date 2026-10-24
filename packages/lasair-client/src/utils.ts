@@ -21,3 +21,18 @@ export function getLasairObjectUrl(diaObjectId: string | number): string {
 export function getLasairSourceUrl(diaSourceId: string | number): string {
   return `https://lasair.lsst.ac.uk/source/${diaSourceId}/`;
 }
+
+export type CutoutType = 'Difference' | 'Template' | 'Science';
+
+/**
+ * Returns the official Lasair FITS cutout URL for a given Rubin DIA source/detection.
+ *
+ * @param diaSourceId - Rubin DIA Source ID
+ * @param type - Cutout type: 'Difference' (subtracted), 'Template' (reference), or 'Science' (visit)
+ */
+export function getLasairCutoutUrl(
+  diaSourceId: string | number,
+  type: CutoutType = 'Difference'
+): string {
+  return `https://lasair.lsst.ac.uk/fits/${diaSourceId}_cutout${type}`;
+}
