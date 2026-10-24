@@ -1,0 +1,44 @@
+name: 🔭 Alert Broker / Observatory Integration
+description: Request a new alert broker client or survey observatory integration (e.g., Fink, ALeRCE, ANTARES, TNS)
+title: "[Integration]: "
+labels: ["broker-integration", "enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        SkyScout aims to provide uniform, typed interfaces for multi-broker astronomical alerts and survey telescopes.
+
+  - type: input
+    id: broker_name
+    attributes:
+      label: Broker / Observatory Name
+      placeholder: e.g. Fink Broker, ALeRCE, ANTARES, TNS (Transient Name Server)
+    validations:
+      required: true
+
+  - type: input
+    id: docs_link
+    attributes:
+      label: Official Documentation / API Link
+      placeholder: https://...
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: capabilities
+    attributes:
+      label: Desired Capabilities
+      options:
+        - label: REST API Client (queries, cone search, metadata)
+        - label: Apache Kafka / WebSocket Real-time Alert Stream
+        - label: Sherlock / Cross-match Host Identification
+        - label: Light Curve & Multi-band Photometry Extraction
+        - label: Interactive UI in skyscout dashboard
+
+  - type: textarea
+    id: scientific_context
+    attributes:
+      label: Scientific Use Case
+      description: What science goals (e.g. kilonova search, supernova cosmology, TDE vetting) will this integration support?
+    validations:
+      required: false

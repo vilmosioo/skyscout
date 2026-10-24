@@ -1,0 +1,62 @@
+name: 💡 Feature Request
+description: Propose a new feature, enhancement, or API addition to SkyScout
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for suggesting an improvement to SkyScout! Please describe your proposed feature and how it benefits astrophysical alert processing or transient exploration.
+
+  - type: dropdown
+    id: package
+    attributes:
+      label: Target Package / Area
+      description: Where should this feature be introduced?
+      options:
+        - "@skyscout/core (Time, Coordinates, Photometry)"
+        - "@skyscout/lasair-client (Lasair Broker API)"
+        - "skyscout (Vite Web Dashboard)"
+        - "New Package / New Client Library"
+        - "CLI Tooling"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or Motivation
+      description: Is your feature request related to a problem or specific use case?
+      placeholder: e.g. When processing transient candidates from Lasair, I need a helper to calculate...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed_solution
+    attributes:
+      label: Proposed Solution & API Design
+      description: Describe your proposed solution, function signatures, UI designs, or data structures.
+      placeholder: |
+        ```ts
+        export function myNewHelper(...) {
+          // ...
+        }
+        ```
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternative Solutions Considered
+      description: Any alternative designs, external libraries, or workarounds you considered.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contribution
+      options:
+        - label: I would be interested in submitting a Pull Request to implement this feature.
+          required: false

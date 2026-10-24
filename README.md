@@ -15,27 +15,43 @@ This repository is organized as a lightweight Turborepo + npm workspaces monorep
 skyscout/
 ├── .changeset/               # Multi-package release and versioning configuration
 ├── .github/
+│   ├── ISSUE_TEMPLATE/       # Structured GitHub Issue forms (bugs, features, brokers)
 │   └── workflows/
 │       ├── ci.yml            # Fast, single-runner GitHub Actions CI
 │       └── release.yml       # Automated npm publishing with provenance via Changesets
+├── apps/
+│   └── skyscout/             # skyscout (Vite 6 + React 18 interactive alert dashboard)
 ├── packages/
 │   ├── core/                 # @skyscout/core (Shared astronomical math & coordinates)
 │   └── lasair-client/        # @skyscout/lasair-client (Published to npm)
 ├── turbo.json                # Turborepo task pipeline configuration
 ├── package.json              # Monorepo root manifest
 ├── tsconfig.base.json        # Shared TypeScript compiler options
+├── ROADMAP.md                # Living architecture milestones & feature backlog
 ├── CONTRIBUTING.md           # Contribution and Changeset guide
 └── LICENSE                   # BSD-3-Clause License
 ```
 
 ---
 
-## Packages
+## Packages & Applications
 
-| Package | Version | Description |
+| Package / App | Version | Description |
 | :--- | :--- | :--- |
-| [`@skyscout/core`](./packages/core) | `0.1.0` | Shared astronomical mathematics, time transformations, coordinate geometry, and photometry math |
-| [`@skyscout/lasair-client`](./packages/lasair-client) | `0.1.0` | Fully-typed TypeScript client for the Lasair Rubin alert broker |
+| [`@skyscout/core`](./packages/core) | `1.0.0` | Shared astronomical mathematics, time transformations, coordinate geometry, and photometry math |
+| [`@skyscout/lasair-client`](./packages/lasair-client) | `2.0.0` | Fully-typed TypeScript client for the Lasair Rubin alert broker |
+| [`skyscout`](./apps/skyscout) | `0.1.0` | Interactive web dashboard demonstrating alert queries, light curves, cone search, and Sherlock context |
+
+---
+
+## Roadmap & Issues
+
+* **Roadmap & Backlog**: See [ROADMAP.md](./ROADMAP.md) for current milestones (Aladin Lite visualizer, Fink/ALeRCE broker support, Kafka alert streams, and CLI).
+* **Issue Tracker**:
+  * 🐛 [File a Bug Report](https://github.com/vilmosioo/skyscout/issues/new?template=bug_report.yml)
+  * 💡 [Propose a Feature](https://github.com/vilmosioo/skyscout/issues/new?template=feature_request.yml)
+  * 🔭 [Request a Broker Integration](https://github.com/vilmosioo/skyscout/issues/new?template=broker_request.yml)
+  * 💬 [Join Discussions](https://github.com/vilmosioo/skyscout/discussions)
 
 ---
 
