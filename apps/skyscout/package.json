@@ -14,8 +14,7 @@
     "@skyscout/lasair-client": "*",
     "lucide-react": "^1.61.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "wouter": "^3.13.0"
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",
