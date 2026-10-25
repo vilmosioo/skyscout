@@ -40,7 +40,7 @@ export class LasairClient {
 
   constructor(config: LasairConfig) {
     if (!config?.token || typeof config.token !== 'string' || config.token.trim() === '') {
-      throw new LasairAuthError('LASAIR_TOKEN is required to initialize LasairClient.');
+      throw new LasairAuthError('Lasair authentication token is required to initialize LasairClient.');
     }
     this.token = config.token.trim();
     this.endpoint = (config.endpoint ?? DEFAULT_ENDPOINT).replace(/\/+$/, '');

@@ -8,15 +8,28 @@ import {
 
 describe('LasairClient Initialization', () => {
   it('throws LasairAuthError when token is missing or empty', () => {
-    expect(() => new LasairClient({ token: '' })).toThrow(LasairAuthError);
-    expect(() => new LasairClient({ token: '   ' })).toThrow(LasairAuthError);
+    // @ts-expect-error testing missing config
+    expect(() => new LasairClient()).toThrow(LasairAuthError);
     // @ts-expect-error testing missing token
     expect(() => new LasairClient({})).toThrow(LasairAuthError);
+    expect(() => new LasairClient({ token: '' })).toThrow(LasairAuthError);
+    expect(() => new LasairClient({ token: '   ' })).toThrow(LasairAuthError);
   });
 
-  it('initializes successfully with valid token', () => {
+  it('initializes successfully with valid explicit token', () => {
     const client = new LasairClient({ token: 'test-token-123' });
     expect(client).toBeInstanceOf(LasairClient);
+  });
+
+  it('does not read from environment variables (pure environment-agnostic library)', () => {
+    const originalEnv = process.env.LASAIR_TOKEN;
+    try {
+      process.env.LASAIR_TOKEN = 'env-token-xyz';
+      // @ts-expect-error testing that client does NOT automatically inspect env vars
+      expect(() => new LasairClient({})).toThrow(LasairAuthError);
+    } finally {
+      process.env.LASAIR_TOKEN = originalEnv;
+    }
   });
 });
 

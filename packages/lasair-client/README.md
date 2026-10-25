@@ -54,11 +54,13 @@ yarn add @skyscout/lasair-client
 
 ## Authentication & API Token
 
-To access Lasair's API, you need a free authentication token:
+To access Lasair's API, you need an authentication token:
 
 1. Register an account at [lasair.lsst.ac.uk/users/register](https://lasair.lsst.ac.uk/users/register/).
 2. Log in and navigate to your [My Profile](https://lasair.lsst.ac.uk/users/profile/) page.
-3. Copy your API token and store it in your environment (e.g. `LASAIR_TOKEN="your_token_here"`).
+3. Copy your API token.
+
+To keep `@skyscout/lasair-client` 100% pure, portable, and runtime-agnostic, the library does not read or depend on any global environment variables. Pass your token explicitly when constructing `LasairClient`.
 
 ---
 
@@ -67,6 +69,7 @@ To access Lasair's API, you need a free authentication token:
 ```typescript
 import { LasairClient } from '@skyscout/lasair-client';
 
+// Pass your token explicitly from your application's config, secrets, or env
 const client = new LasairClient({
   token: process.env.LASAIR_TOKEN!,
 });
@@ -260,7 +263,7 @@ fluxToAbMag(15000); // => ~20.96 AB mag
 
 All client errors inherit from `LasairError`:
 
-* `LasairAuthError` (401): Missing or invalid `LASAIR_TOKEN`.
+* `LasairAuthError` (401): Missing or invalid Lasair authentication token.
 * `LasairRateLimitError` (429): Lasair query quota exceeded.
 * `LasairRequestError`: General HTTP error from Lasair with status code and server response body.
 * `LasairTimeoutError` (408): Request timed out (configurable via `timeoutMs`).
@@ -272,7 +275,7 @@ try {
   await client.query({ ... });
 } catch (err) {
   if (err instanceof LasairAuthError) {
-    console.error('Invalid token! Please check your LASAIR_TOKEN.');
+    console.error('Invalid token! Please check your Lasair API token.');
   } else if (err instanceof LasairRateLimitError) {
     console.error('Hit Lasair rate limit; back off before retrying.');
   }
