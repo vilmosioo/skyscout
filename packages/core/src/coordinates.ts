@@ -367,3 +367,93 @@ export function angularSeparationArcsec(
 ): number {
   return angularSeparation(ra1, dec1, ra2, dec2) * 3600;
 }
+
+/** Horizontal spherical coordinates (Altitude and Azimuth) */
+export interface AltAzCoordinates {
+  /** Altitude above horizon in degrees [-90, +90] */
+  altitude: number;
+  /** Azimuth angle in degrees [0, 360) measured East from North */
+  azimuth: number;
+  /** Optical airmass (approximate relative path length through Earth atmosphere) */
+  airmass: number;
+}
+
+/**
+ * Calculates Greenwich Mean Sidereal Time (GMST) in degrees for a given Date.
+ */
+export function getGmstDegrees(date: Date): number {
+  const jd = date.getTime() / 86_400_000 + 2440587.5;
+  const d = jd - 2451545.0;
+  let gmst = 280.46061837 + 360.98564736629 * d;
+  gmst = ((gmst % 360) + 360) % 360;
+  return gmst;
+}
+
+/**
+ * Calculates topocentric Altitude and Azimuth (Alt/Az) for a celestial object (RA, Dec)
+ * as observed from an Earth location (latitude, longitude) at a specific time.
+ *
+ * @param ra - Right Ascension in decimal degrees
+ * @param dec - Declination in decimal degrees
+ * @param lat - Observer latitude in decimal degrees (-90 to +90, positive North)
+ * @param lon - Observer longitude in decimal degrees (-180 to +180, positive East)
+ * @param date - Observation timestamp (default: current Date)
+ */
+export function calculateAltAz(
+  ra: number,
+  dec: number,
+  lat: number,
+  lon: number,
+  date: Date = new Date()
+): AltAzCoordinates {
+  const gmst = getGmstDegrees(date);
+  const lst = ((gmst + lon) % 360 + 360) % 360;
+
+  let ha = lst - ra;
+  ha = ((ha % 360) + 360) % 360;
+  if (ha > 180) ha -= 360;
+
+  const latRad = lat * DEG_TO_RAD;
+  const decRad = dec * DEG_TO_RAD;
+  const haRad = ha * DEG_TO_RAD;
+
+  const sinAlt =
+    Math.sin(latRad) * Math.sin(decRad) +
+    Math.cos(latRad) * Math.cos(decRad) * Math.cos(haRad);
+  const altRad = Math.asin(Math.max(-1, Math.min(1, sinAlt)));
+  const altDeg = altRad * RAD_TO_DEG;
+
+  const cosAz =
+    (Math.sin(decRad) - Math.sin(latRad) * Math.sin(altRad)) /
+    (Math.cos(latRad) * Math.cos(altRad));
+  let azRad = Math.acos(Math.max(-1, Math.min(1, cosAz)));
+  if (Math.sin(haRad) > 0) {
+    azRad = 2 * Math.PI - azRad;
+  }
+  const azDeg = azRad * RAD_TO_DEG;
+
+  let airmass = 99.0;
+  if (altDeg > 2) {
+    const zenithRad = (90 - altDeg) * DEG_TO_RAD;
+    airmass = 1.0 / Math.cos(zenithRad);
+  }
+
+  return {
+    altitude: altDeg,
+    azimuth: azDeg,
+    airmass: Math.min(15.0, Math.max(1.0, airmass)),
+  };
+}
+
+/**
+ * Returns the 16-point compass cardinal direction string (e.g. 'SSE', 'NW')
+ * for a given azimuth angle in degrees.
+ */
+export function getCardinalDirection(azimuthDeg: number): string {
+  const directions = [
+    'N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
+    'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW',
+  ];
+  const index = Math.round(((azimuthDeg % 360) + 360) % 360 / 22.5) % 16;
+  return directions[index];
+}

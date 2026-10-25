@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   angularSeparation,
   angularSeparationArcsec,
+  calculateAltAz,
   clampDec,
   degreesToDms,
   degreesToHms,
@@ -9,6 +10,7 @@ import {
   formatCoordinates,
   formatDms,
   formatHms,
+  getCardinalDirection,
   hmsToDegrees,
   normalizeRa,
   parseSexagesimalDec,
@@ -162,6 +164,33 @@ describe('Coordinates Utilities', () => {
       const oneArcsecDeg = 1 / 3600;
       const sepArcsec = angularSeparationArcsec(0, 0, 0, oneArcsecDeg);
       expect(sepArcsec).toBeCloseTo(1.0, 6);
+    });
+  });
+
+  describe('Horizontal Coordinates (Alt/Az & Cardinal Directions)', () => {
+    it('calculates Alt/Az for a celestial position', () => {
+      const fixedDate = new Date('2026-10-25T00:00:00Z');
+      const res = calculateAltAz(62.3908, -48.5147, -30.2444, -70.7494, fixedDate);
+      expect(typeof res.altitude).toBe('number');
+      expect(typeof res.azimuth).toBe('number');
+      expect(typeof res.airmass).toBe('number');
+      expect(res.altitude).toBeGreaterThanOrEqual(-90);
+      expect(res.altitude).toBeLessThanOrEqual(90);
+      expect(res.azimuth).toBeGreaterThanOrEqual(0);
+      expect(res.azimuth).toBeLessThanOrEqual(360);
+      expect(res.airmass).toBeGreaterThanOrEqual(1.0);
+    });
+
+    it('correctly maps azimuth degrees to 16 cardinal compass directions', () => {
+      expect(getCardinalDirection(0)).toBe('N');
+      expect(getCardinalDirection(360)).toBe('N');
+      expect(getCardinalDirection(90)).toBe('E');
+      expect(getCardinalDirection(180)).toBe('S');
+      expect(getCardinalDirection(270)).toBe('W');
+      expect(getCardinalDirection(45)).toBe('NE');
+      expect(getCardinalDirection(135)).toBe('SE');
+      expect(getCardinalDirection(157.5)).toBe('SSE');
+      expect(getCardinalDirection(315)).toBe('NW');
     });
   });
 });
