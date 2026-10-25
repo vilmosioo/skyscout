@@ -46,7 +46,7 @@ skyscout/
 
 ## Roadmap & Issues
 
-* **Roadmap & Backlog**: See [ROADMAP.md](./ROADMAP.md) for current milestones (Aladin Lite visualizer, Fink/ALeRCE broker support, Kafka alert streams, and CLI).
+* **Roadmap & Backlog**: See [ROADMAP.md](./ROADMAP.md) for living architecture milestones (Aladin visualizer, Fink/ALeRCE broker support, Kafka alert streams, and CLI).
 * **Issue Tracker**:
   * 🐛 [File a Bug Report](https://github.com/vilmosioo/skyscout/issues/new?template=bug_report.yml)
   * 💡 [Propose a Feature](https://github.com/vilmosioo/skyscout/issues/new?template=feature_request.yml)
