@@ -27,7 +27,6 @@ skyscout/
 ├── turbo.json                # Turborepo task pipeline configuration
 ├── package.json              # Monorepo root manifest
 ├── tsconfig.base.json        # Shared TypeScript compiler options
-├── ROADMAP.md                # Living architecture milestones & feature backlog
 ├── CONTRIBUTING.md           # Contribution and Changeset guide
 └── LICENSE                   # BSD-3-Clause License
 ```
@@ -44,10 +43,9 @@ skyscout/
 
 ---
 
-## Roadmap & Issues
+## Project Tracking & Issues
 
-* **Roadmap & Backlog**: See [ROADMAP.md](./ROADMAP.md) for living architecture milestones (Aladin visualizer, Fink/ALeRCE broker support, Kafka alert streams, and CLI).
-* **Issue Tracker**:
+* **Issue Tracker & Project Roadmap**: Track active development milestones, feature backlogs, and bug reports via our project board and GitHub Issues:
   * 🐛 [File a Bug Report](https://github.com/vilmosioo/skyscout/issues/new?template=bug_report.yml)
   * 💡 [Propose a Feature](https://github.com/vilmosioo/skyscout/issues/new?template=feature_request.yml)
   * 🔭 [Request a Broker Integration](https://github.com/vilmosioo/skyscout/issues/new?template=broker_request.yml)

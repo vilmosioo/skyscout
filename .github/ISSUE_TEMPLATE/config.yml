@@ -1,8 +1,5 @@
 blank_issues_enabled: false
 contact_links:
-  - name: 📖 SkyScout Documentation & Roadmap
-    url: https://github.com/vilmosioo/skyscout/blob/develop/ROADMAP.md
-    about: Review our active roadmap, milestones, and architecture plans.
   - name: 💬 GitHub Discussions
     url: https://github.com/vilmosioo/skyscout/discussions
     about: Ask questions, share transient alert workflows, or discuss ideas before opening an issue.

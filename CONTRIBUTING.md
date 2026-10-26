@@ -9,8 +9,7 @@ Thank you for your interest in contributing to SkyScout! We welcome contribution
 Before starting work or if you encounter unexpected behavior:
 
 1. **Check Existing Issues**: Search [GitHub Issues](https://github.com/vilmosioo/skyscout/issues) to see if the issue or feature is already being discussed.
-2. **Review the Roadmap**: Check [ROADMAP.md](./ROADMAP.md) for current milestones and architectural direction.
-3. **Submit an Issue**:
+2. **Submit an Issue or Feature Request**:
    * 🐛 **Bug Reports**: Use our [Bug Report Form](https://github.com/vilmosioo/skyscout/issues/new?template=bug_report.yml) to provide reproduction steps and environment details.
    * 💡 **Feature Proposals**: Submit a [Feature Request Form](https://github.com/vilmosioo/skyscout/issues/new?template=feature_request.yml) with your proposed design and API signatures.
    * 🔭 **Broker Integrations**: Request a new alert broker or telescope scout client using the [Integration Form](https://github.com/vilmosioo/skyscout/issues/new?template=broker_request.yml).
