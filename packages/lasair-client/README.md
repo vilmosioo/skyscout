@@ -26,14 +26,14 @@ As wide-field survey telescopes scan the night sky, Rubin detects millions of ce
 ## Features
 
 * **Universal Runtime Compatibility**: Built strictly on standard `fetch`, compatible with Node 18+, Bun, Deno, Cloudflare Workers, modern browsers, and React Native.
-* **Lossless 64-bit ID Preservation**: Rubin DIA object and source IDs are 18-digit integers (e.g. `170657504701711053`) that exceed JavaScript's `Number.MAX_SAFE_INTEGER` ($2^{53}-1$). `@skyscout/lasair-client` automatically prevents floating-point rounding corruption.
+* **Lossless 64-bit ID Preservation**: Rubin DIA object and source IDs are 18-digit integers (e.g. `170657504701711053`) that exceed JavaScript's `Number.MAX_SAFE_INTEGER` (`2^53 - 1`). `@skyscout/lasair-client` automatically prevents floating-point rounding corruption.
 * **Complete Lasair Broker API**:
   * SQL Queries (`query`) on Rubin alert tables and Sherlock classifications.
-  * Fast Cone Search (`cone`) by sky coordinates ($\text{RA}, \text{Dec}$).
+  * Fast Cone Search (`cone`) by sky coordinates (`RA, Dec`).
   * Difference Image Analysis (DIA) Object & Photometry Light Curves (`object`).
   * Sherlock Context & Galaxy Cross-Matching (`sherlockObject`, `sherlockPosition`).
   * Citizen & Machine Annotations (`annotate`, `annotateList`).
-* **Astronomical Utilities**: Modified Julian Date (MJD) $\leftrightarrow$ Date conversions, PSF nanoJansky flux to AB magnitude calculations, and sky coordinate formatting (re-exported from `@skyscout/core`).
+* **Astronomical Utilities**: Modified Julian Date (MJD) ↔ Date conversions, PSF nanoJansky flux to AB magnitude calculations, and sky coordinate formatting (re-exported from `@skyscout/core`).
 * **Dual ESM / CommonJS**: Pre-bundled with full TypeScript declaration maps and source maps via `tsup`.
 
 ---
@@ -137,7 +137,7 @@ const candidates = await client.query({
 
 ### 2. `client.cone(options)`
 
-Runs a cone search around a specific coordinate ($\text{RA}, \text{Dec}$ in decimal degrees).
+Runs a cone search around a specific coordinate (`RA, Dec` in decimal degrees).
 
 📖 **Official Docs**: [Lasair REST API — `cone`](https://lasair-lsst.readthedocs.io/en/latest/core_functions/rest_api.html#cone)
 
@@ -209,7 +209,7 @@ await client.annotate({
 
 ## 64-bit ID Precision Preservation
 
-Rubin alert identifiers (`diaObjectId`, `diaSourceId`) are 64-bit unsigned integers up to 18 digits long. Under standard JavaScript `JSON.parse`, integers above $2^{53} - 1$ (`9007199254740991`) silently suffer IEEE-754 precision truncation:
+Rubin alert identifiers (`diaObjectId`, `diaSourceId`) are 64-bit unsigned integers up to 18 digits long. Under standard JavaScript `JSON.parse`, integers above `2^53 - 1` (`9007199254740991`) silently suffer IEEE-754 precision truncation:
 
 ```javascript
 // Native JSON.parse rounds 18-digit IDs:

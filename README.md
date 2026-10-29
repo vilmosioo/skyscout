@@ -56,8 +56,8 @@ skyscout/
 ## Development Guide
 
 ### Prerequisites
-* Node.js $\ge 20.0.0$
-* npm $\ge 8.0.0$
+* Node.js `>= 20.0.0`
+* npm `>= 8.0.0`
 
 ### Quick Commands (Powered by Turborepo)
 
