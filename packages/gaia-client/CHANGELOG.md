@@ -1,5 +1,11 @@
 # @skyscout/gaia-client
 
+## 2.0.1
+
+### Patch Changes
+
+- e755724: Simplify solar volume query options and presets.
+
 ## 2.0.0
 
 ### Major Changes
