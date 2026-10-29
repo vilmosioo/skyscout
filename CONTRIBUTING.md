@@ -33,7 +33,7 @@ Before starting work or if you encounter unexpected behavior:
    npm run build
    ```
 
-4. If you modified public packages (`@skyscout/core`, `@skyscout/lasair-client`), generate a changeset:
+4. If you modified public packages (`@skyscout/core`, `@skyscout/gaia-client`, `@skyscout/lasair-client`), generate a changeset:
    ```bash
    npm run changeset
    ```

@@ -20,9 +20,11 @@ skyscout/
 │       ├── ci.yml            # Fast, single-runner GitHub Actions CI
 │       └── release.yml       # Automated npm publishing with provenance via Changesets
 ├── apps/
-│   └── skyscout/             # skyscout (Vite 6 + React 18 interactive alert dashboard)
+│   ├── skyscout/             # skyscout (Vite 6 + React 18 interactive alert dashboard)
+│   └── starplot/             # starplot (Live Gaia DR3 Hertzsprung-Russell diagram viewer)
 ├── packages/
 │   ├── core/                 # @skyscout/core (Shared astronomical math & coordinates)
+│   ├── gaia-client/          # @skyscout/gaia-client (ESA Gaia Archive client)
 │   └── lasair-client/        # @skyscout/lasair-client (Published to npm)
 ├── turbo.json                # Turborepo task pipeline configuration
 ├── package.json              # Monorepo root manifest
@@ -37,9 +39,11 @@ skyscout/
 
 | Package / App | Version | Description |
 | :--- | :--- | :--- |
-| [`@skyscout/core`](./packages/core) | `1.0.0` | Shared astronomical mathematics, time transformations, coordinate geometry, and photometry math |
-| [`@skyscout/lasair-client`](./packages/lasair-client) | `2.0.0` | Fully-typed TypeScript client for the Lasair Rubin alert broker |
-| [`skyscout`](./apps/skyscout) | `0.1.0` | Interactive web dashboard demonstrating alert queries, light curves, cone search, and Sherlock context |
+| [`@skyscout/core`](./packages/core) | `1.1.0` | Shared astronomical mathematics, time transformations, coordinate geometry, and photometry math |
+| [`@skyscout/gaia-client`](./packages/gaia-client) | `1.0.0` | Fully-typed TypeScript client for the ESA Gaia Archive stellar catalog |
+| [`@skyscout/lasair-client`](./packages/lasair-client) | `2.0.1` | Fully-typed TypeScript client for the Lasair Rubin alert broker |
+| [`skyscout`](./apps/skyscout) | `0.2.0` | Interactive web dashboard demonstrating alert queries, light curves, cone search, and Sherlock context |
+| [`starplot`](./apps/starplot) | `0.1.0` | Live Gaia DR3 Hertzsprung–Russell (H–R) diagram web application |
 
 ---
 
