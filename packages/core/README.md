@@ -16,10 +16,13 @@ Telescope-agnostic astronomical mathematics, celestial coordinate conversions, t
   - Decimal degrees $\leftrightarrow$ Sexagesimal conversions (HMS for RA, DMS for Dec).
   - Great-circle angular separation via the numerically stable spherical Vincenty formula in degrees and arcseconds.
   - Robust handling of edge cases (negative zero declination $-0^\circ$, degree rollover, clamping).
-- 💡 **Photometry & Flux Math**:
+- 💡 **Photometry, Distance & Stellar Math**:
   - Point Spread Function (PSF) flux in nanoJanskys (nJy) $\leftrightarrow$ standard AB magnitude.
   - First-order error propagation between linear flux uncertainty ($\sigma_f$) and magnitude uncertainty ($\sigma_m$).
   - Signal-to-noise ratio (SNR) calculation.
+  - Stellar parallax ($\varpi$ in mas) $\leftrightarrow$ distance in parsecs and light-years, plus distance modulus ($\mu = m - M$).
+  - Absolute magnitude calculation ($M_G = G + 5 + 5 \log_{10}(\varpi / 1000) - A_G$) with optional extinction.
+  - Stellar luminosity ($\log_{10} L/L_\odot$ and $L/L_\odot$), Gaia $(G_{\text{BP}} - G_{\text{RP}})$ color index, effective temperature ($T_{\text{eff}}$), and MK spectral class (`O`–`M`).
 - 📦 **Modern Multi-Format Distribution**: Dual ESM and CommonJS bundle with TypeScript type definitions generated via `tsup`.
 - ⚡ **Hermetic & Fast**: Pure mathematical algorithms and celestial transforms.
 
