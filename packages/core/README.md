@@ -9,20 +9,20 @@ Telescope-agnostic astronomical mathematics, celestial coordinate conversions, t
 ## Features
 
 - ⏱ **Astronomical Time Conversions**:
-  - Modified Julian Date (MJD) $\leftrightarrow$ JavaScript `Date` $\leftrightarrow$ Julian Date (JD).
+  - Modified Julian Date (MJD) ↔ JavaScript `Date` ↔ Julian Date (JD).
   - High-precision handling of astronomical epochs including J2000.0 and Unix epoch.
 - 📐 **Coordinates & Spherical Geometry**:
   - Right Ascension (RA) and Declination (Dec) formatting.
-  - Decimal degrees $\leftrightarrow$ Sexagesimal conversions (HMS for RA, DMS for Dec).
+  - Decimal degrees ↔ Sexagesimal conversions (HMS for RA, DMS for Dec).
   - Great-circle angular separation via the numerically stable spherical Vincenty formula in degrees and arcseconds.
-  - Robust handling of edge cases (negative zero declination $-0^\circ$, degree rollover, clamping).
+  - Robust handling of edge cases (negative zero declination `-0°`, degree rollover, clamping).
 - 💡 **Photometry, Distance & Stellar Math**:
-  - Point Spread Function (PSF) flux in nanoJanskys (nJy) $\leftrightarrow$ standard AB magnitude.
-  - First-order error propagation between linear flux uncertainty ($\sigma_f$) and magnitude uncertainty ($\sigma_m$).
+  - Point Spread Function (PSF) flux in nanoJanskys (nJy) ↔ standard AB magnitude.
+  - First-order error propagation between linear flux uncertainty (`σ_f`) and magnitude uncertainty (`σ_m`).
   - Signal-to-noise ratio (SNR) calculation.
-  - Stellar parallax ($\varpi$ in mas) $\leftrightarrow$ distance in parsecs and light-years, plus distance modulus ($\mu = m - M$).
-  - Absolute magnitude calculation ($M_G = G + 5 + 5 \log_{10}(\varpi / 1000) - A_G$) with optional extinction.
-  - Stellar luminosity ($\log_{10} L/L_\odot$ and $L/L_\odot$), Gaia $(G_{\text{BP}} - G_{\text{RP}})$ color index, effective temperature ($T_{\text{eff}}$), and MK spectral class (`O`–`M`).
+  - Stellar parallax (`ϖ` in mas) ↔ distance in parsecs and light-years, plus distance modulus (`μ = m - M`).
+  - Absolute magnitude calculation (`M_G = G + 5 + 5 * log10(ϖ / 1000) - A_G`) with optional extinction.
+  - Stellar luminosity (`log10(L / L☉)` and `L / L☉`), Gaia `G_BP - G_RP` color index, effective temperature (`T_eff`), and MK spectral class (`O`–`M`).
 - 📦 **Modern Multi-Format Distribution**: Dual ESM and CommonJS bundle with TypeScript type definitions generated via `tsup`.
 - ⚡ **Hermetic & Fast**: Pure mathematical algorithms and celestial transforms.
 
