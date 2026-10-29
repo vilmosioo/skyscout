@@ -1,6 +1,6 @@
 {
   "name": "@skyscout/gaia-client",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Fully-typed TypeScript client for the ESA Gaia Archive stellar astrometry and photometry catalog",
   "license": "BSD-3-Clause",
   "type": "module",

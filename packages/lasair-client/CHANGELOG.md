@@ -4,6 +4,12 @@
 
 ### Patch Changes
 
+- 2545525: Replace raw LaTeX notation in `README.md` with clean Unicode and inline code so mathematical expressions render properly on npmjs.com.
+
+## 2.0.1
+
+### Patch Changes
+
 - Replace raw LaTeX notation in `README.md` with clean Unicode and inline code so mathematical expressions render properly on npmjs.com.
 
 ## 2.0.0
