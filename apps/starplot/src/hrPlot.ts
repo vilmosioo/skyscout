@@ -330,6 +330,7 @@ export const TARGET_PRESETS: TargetPreset[] = [
 export const CACHE_KEY_PREFIX = 'starplot:gaia:v1:';
 
 const memoryCache = new Map<string, GaiaStar[]>();
+const inFlightRequests = new Map<string, Promise<GaiaStar[]>>();
 
 function getCacheKey(targetId: TargetPresetId, limit: number): string {
   return `${CACHE_KEY_PREFIX}${targetId}:${limit}`;
@@ -352,7 +353,8 @@ export function getCachedTargetStars(
   if (!store) return null;
 
   try {
-    const raw = store.getItem(key);
+    const raw =
+      store.getItem(key) ?? (limit !== 1000 ? store.getItem(getCacheKey(targetId, 1000)) : null);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as GaiaStar[];
     if (Array.isArray(parsed) && parsed.length > 0) {
@@ -367,12 +369,14 @@ export function getCachedTargetStars(
 
 /**
  * Persists stars for a preset into in-memory and `localStorage` cache.
+ * If browser `localStorage` hits its ~5 MB quota (after ~12 cached clusters),
+ * older `starplot:gaia:v1:*` entries are evicted so the newly fetched preset is always cached.
  */
 export function setCachedTargetStars(
   targetId: TargetPresetId,
   limit: number,
   stars: GaiaStar[],
-  storage?: Pick<Storage, 'setItem'>
+  storage?: Pick<Storage, 'setItem'> & Partial<Pick<Storage, 'removeItem'>>
 ): void {
   const key = getCacheKey(targetId, limit);
   memoryCache.set(key, stars);
@@ -380,10 +384,24 @@ export function setCachedTargetStars(
   const store = storage ?? (typeof globalThis !== 'undefined' ? globalThis.localStorage : undefined);
   if (!store) return;
 
+  const serialized = JSON.stringify(stars);
   try {
-    store.setItem(key, JSON.stringify(stars));
+    store.setItem(key, serialized);
   } catch {
-    // Ignore quota exceeded or private browsing errors
+    // Browser localStorage (~5 MB limit) is full — evict older cached presets until setItem succeeds
+    if (typeof store.removeItem === 'function') {
+      for (const preset of TARGET_PRESETS) {
+        if (preset.id === targetId) continue;
+        try {
+          store.removeItem(getCacheKey(preset.id, limit));
+          store.removeItem(getCacheKey(preset.id, 1000));
+          store.setItem(key, serialized);
+          break;
+        } catch {
+          // Keep evicting until enough quota is freed
+        }
+      }
+    }
   }
 }
 
@@ -392,6 +410,7 @@ export function setCachedTargetStars(
  */
 export function clearStarCache(storage?: Pick<Storage, 'removeItem'>): void {
   memoryCache.clear();
+  inFlightRequests.clear();
   const store = storage ?? (typeof globalThis !== 'undefined' ? globalThis.localStorage : undefined);
   if (!store) return;
   for (const preset of TARGET_PRESETS) {
@@ -405,7 +424,8 @@ export function clearStarCache(storage?: Pick<Storage, 'removeItem'>): void {
 
 /**
  * Fetches live Gaia DR3 stars for the selected target using `@skyscout/gaia-client`,
- * returning cached results from `localStorage` if already fetched.
+ * deduplicating concurrent in-flight requests (e.g. React StrictMode double-mount)
+ * and returning cached results from `localStorage` if already fetched.
  */
 export async function fetchTargetStars(
   client: GaiaClient,
@@ -423,25 +443,40 @@ export async function fetchTargetStars(
     return [];
   }
 
-  let stars: GaiaStar[];
-  if (preset.volume) {
-    stars = await client.searchStars({
-      ...preset.volume,
-      limit,
-    });
-  } else if (preset.cone) {
-    stars = await client.coneSearch({
-      ...preset.cone,
-      limit,
-    });
-  } else {
-    stars = [];
+  const key = getCacheKey(targetId, limit);
+  const existingInFlight = inFlightRequests.get(key);
+  if (existingInFlight) {
+    return existingInFlight;
   }
 
-  if (stars.length > 0) {
-    setCachedTargetStars(targetId, limit, stars, storage);
-  }
-  return stars;
+  const requestPromise = (async (): Promise<GaiaStar[]> => {
+    try {
+      let stars: GaiaStar[];
+      if (preset.volume) {
+        stars = await client.searchStars({
+          ...preset.volume,
+          limit,
+        });
+      } else if (preset.cone) {
+        stars = await client.coneSearch({
+          ...preset.cone,
+          limit,
+        });
+      } else {
+        stars = [];
+      }
+
+      if (stars.length > 0) {
+        setCachedTargetStars(targetId, limit, stars, storage);
+      }
+      return stars;
+    } finally {
+      inFlightRequests.delete(key);
+    }
+  })();
+
+  inFlightRequests.set(key, requestPromise);
+  return requestPromise;
 }
 
 /**
@@ -491,9 +526,9 @@ export interface HrBounds {
 }
 
 export const HR_BOUNDS: HrBounds = {
-  minBpRp: -0.6,
-  maxBpRp: 3.6,
-  minAbsMag: -4.5,
+  minBpRp: -0.55,
+  maxBpRp: 3.45,
+  minAbsMag: -6.5,
   maxAbsMag: 16.5,
 };
 
@@ -522,6 +557,51 @@ export function starToCanvasXY(
     x: box.left + xNorm * box.width,
     y: box.top + yNorm * box.height,
   };
+}
+
+/**
+ * Computes a fine stardust canvas dot radius (in CSS pixels) from a star's absolute magnitude M_G,
+ * matching the classic Richard Powell / Wikipedia H–R diagram point-cloud aesthetic:
+ * - Faint dwarfs (M_G >= +14): 0.55px radius (~1.1px pinpoint)
+ * - Solar-type dwarfs (M_G ~ +4.8): ~0.83px radius (~1.65px pinpoint)
+ * - Luminous giants/supergiants (M_G <= -5): capped at 1.20px radius
+ */
+export function computeStarCanvasRadius(absoluteMagG: number, scale: number = 1): number {
+  const baseRadius = Math.max(0.55, Math.min(1.2, 0.55 + (14 - absoluteMagG) * 0.032));
+  return baseRadius * scale;
+}
+
+/**
+ * Finds the closest plotted star within `hitRadiusPx` (defaults to 12px) of `(mouseX, mouseY)`
+ * so hover/click selection remains responsive even when visual star radii are sub-2px pinpoints.
+ */
+export function findClosestStarAtPoint<
+  T extends { star: Pick<GaiaStar, 'bpRp' | 'absoluteMagG'> }
+>(
+  items: readonly T[],
+  mouseX: number,
+  mouseY: number,
+  box: PlotBox,
+  bounds: HrBounds = HR_BOUNDS,
+  hitRadiusPx: number = 12
+): T | null {
+  let closest: T | null = null;
+  let minDistSq = hitRadiusPx * hitRadiusPx;
+
+  for (const item of items) {
+    const { bpRp, absoluteMagG } = item.star;
+    if (bpRp === null || absoluteMagG === null) continue;
+    const { x, y } = starToCanvasXY(bpRp, absoluteMagG, box, bounds);
+    const dx = x - mouseX;
+    const dy = y - mouseY;
+    const d2 = dx * dx + dy * dy;
+    if (d2 < minDistSq) {
+      minDistSq = d2;
+      closest = item;
+    }
+  }
+
+  return closest;
 }
 
 /**
@@ -598,20 +678,22 @@ export interface ColorScheme {
 export const COLOR_SCHEMES: Record<ColorSchemeId, ColorScheme> = {
   blackbody: {
     id: 'blackbody',
-    label: 'Planck Blackbody',
-    canvasBg: '#080c16',
-    gridColor: 'rgba(255, 255, 255, 0.06)',
-    axisTextColor: '#94a3b8',
-    titleTextColor: '#e2e8f0',
-    watermarkColor: 'rgba(255, 255, 255, 0.14)',
+    label: 'Classic H–R (Wikipedia / Powell)',
+    canvasBg: '#000000',
+    gridColor: 'rgba(255, 255, 255, 0.04)',
+    axisTextColor: '#cbd5e1',
+    titleTextColor: '#fde047',
+    watermarkColor: 'rgba(217, 70, 239, 0.75)',
     stops: [
-      { bpRp: -0.4, rgb: [96, 165, 250] },  // #60a5fa Hot O/B blue
-      { bpRp: 0.0, rgb: [186, 230, 253] },  // #bae6fd B/A blue-white
-      { bpRp: 0.4, rgb: [248, 250, 252] },  // #f8fafc A/F pure white
-      { bpRp: 0.82, rgb: [253, 224, 71] },  // #fde047 G2V Solar yellow
-      { bpRp: 1.35, rgb: [251, 146, 60] },  // #fb923c K orange
-      { bpRp: 2.3, rgb: [248, 113, 113] },  // #f87171 M red
-      { bpRp: 3.5, rgb: [220, 38, 38] },    // #dc2626 Deep M crimson
+      { bpRp: -0.45, rgb: [110, 215, 255] }, // #6ed7ff Cyan-blue O/B
+      { bpRp: -0.1, rgb: [205, 245, 255] },  // #cdf5ff Ice blue-white B/A
+      { bpRp: 0.2, rgb: [255, 255, 255] },   // #ffffff Pure white A/F
+      { bpRp: 0.55, rgb: [255, 253, 175] },  // #fffdaf Warm cream F/G
+      { bpRp: 0.82, rgb: [255, 234, 0] },    // #ffea00 Vivid canary yellow G (Sun)
+      { bpRp: 1.15, rgb: [255, 158, 0] },    // #ff9e00 Golden amber-orange K / Red Clump
+      { bpRp: 1.65, rgb: [255, 68, 0] },     // #ff4400 Fiery orange-red late-K / early-M
+      { bpRp: 2.35, rgb: [215, 20, 0] },     // #d71400 Deep ruby red M-dwarf
+      { bpRp: 3.4, rgb: [135, 5, 0] },       // #870500 Dark crimson late M-dwarf
     ],
   },
   ultraviolet: {

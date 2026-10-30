@@ -5,7 +5,9 @@ import {
   bpRpToStarHexColor,
   COLOR_SCHEMES,
   type ColorSchemeId,
+  computeStarCanvasRadius,
   fetchTargetStars,
+  findClosestStarAtPoint,
   getGaiaStarExternalUrls,
   getStarPhysicalDetails,
   HR_BOUNDS,
@@ -20,7 +22,7 @@ import {
   zoomHrBounds,
 } from './hrPlot';
 
-const PADDING = { left: 68, top: 48, right: 34, bottom: 54 };
+const PADDING = { left: 78, top: 56, right: 64, bottom: 52 };
 
 interface TaggedStar {
   star: GaiaStar;
@@ -29,7 +31,8 @@ interface TaggedStar {
 
 /**
  * Shared H–R diagram renderer used for both the live interactive canvas
- * and the high-resolution print poster export.
+ * and the high-resolution print poster export, styled after Richard Powell's
+ * classic Wikipedia Hertzsprung–Russell diagram.
  */
 function renderHrDiagramCanvas(options: {
   ctx: CanvasRenderingContext2D;
@@ -48,8 +51,9 @@ function renderHrDiagramCanvas(options: {
   const { ctx, width, height, box, bounds, schemeId, stars, hoveredStar, posterHeader } = options;
   const scheme = COLOR_SCHEMES[schemeId];
   const scale = posterHeader ? 2.2 : 1;
+  const isLightTheme = schemeId === 'print-light';
 
-  // 1. Background
+  // 1. Pitch-black (or scheme) background
   ctx.fillStyle = scheme.canvasBg;
   ctx.fillRect(0, 0, width, height);
 
@@ -72,58 +76,109 @@ function renderHrDiagramCanvas(options: {
     );
   }
 
-  // 2. Subtle grid & axes
-  ctx.strokeStyle = scheme.gridColor;
-  ctx.lineWidth = 1 * scale;
-  ctx.font = `${Math.round(11 * scale)}px "JetBrains Mono", monospace`;
-  ctx.fillStyle = scheme.axisTextColor;
+  // 2. Top Spectral Class & Surface Temperature Header (O B A F G K M + Kelvin ticks)
+  const spectralHeader: Array<{ cls: string; bpRp: number; temp: string }> = [
+    { cls: 'O', bpRp: -0.42, temp: '30000K' },
+    { cls: 'B', bpRp: -0.15, temp: '10000K' },
+    { cls: 'A', bpRp: 0.12, temp: '7500K' },
+    { cls: 'F', bpRp: 0.45, temp: '6000K' },
+    { cls: 'G', bpRp: 0.82, temp: '5000K' },
+    { cls: 'K', bpRp: 1.32, temp: '4000K' },
+    { cls: 'M', bpRp: 2.15, temp: '3000K' },
+  ];
 
-  // X-axis ticks: Color Index (G_BP - G_RP)
+  ctx.textAlign = 'center';
+  for (const sp of spectralHeader) {
+    const { x } = starToCanvasXY(sp.bpRp, 0, box, bounds);
+    if (x >= box.left + 8 && x <= box.left + box.width - 8) {
+      // Spectral class letter (colored by stellar temperature)
+      ctx.font = `700 ${Math.round(12 * scale)}px "Inter", sans-serif`;
+      ctx.fillStyle = bpRpToStarHexColor(sp.bpRp, schemeId);
+      ctx.fillText(sp.cls, x, box.top - 24 * scale);
+
+      // Top tick mark + Kelvin label
+      ctx.strokeStyle = scheme.axisTextColor;
+      ctx.lineWidth = 1 * scale;
+      ctx.beginPath();
+      ctx.moveTo(x, box.top);
+      ctx.lineTo(x, box.top - 5 * scale);
+      ctx.stroke();
+
+      ctx.font = `${Math.round(10 * scale)}px "JetBrains Mono", monospace`;
+      ctx.fillStyle = scheme.axisTextColor;
+      ctx.fillText(sp.temp, x, box.top - 9 * scale);
+    }
+  }
+
+  // 3. Bottom X-axis ticks: Color Index (G_BP - G_RP)
+  ctx.strokeStyle = scheme.axisTextColor;
+  ctx.fillStyle = scheme.axisTextColor;
+  ctx.lineWidth = 1 * scale;
+  ctx.font = `${Math.round(10.5 * scale)}px "JetBrains Mono", monospace`;
+
   const xStep = bounds.maxBpRp - bounds.minBpRp > 1.8 ? 0.5 : 0.2;
   const firstX = Math.ceil(bounds.minBpRp / xStep) * xStep;
   for (let c = firstX; c <= bounds.maxBpRp + 1e-6; c += xStep) {
     const { x } = starToCanvasXY(c, 0, box, bounds);
     if (x < box.left || x > box.left + box.width) continue;
+
+    // Outer bottom tick
     ctx.beginPath();
-    ctx.moveTo(x, box.top);
-    ctx.lineTo(x, box.top + box.height);
+    ctx.moveTo(x, box.top + box.height);
+    ctx.lineTo(x, box.top + box.height + 6 * scale);
     ctx.stroke();
 
     ctx.textAlign = 'center';
-    ctx.fillText(c.toFixed(xStep < 0.5 ? 2 : 1), x, box.top + box.height + 20 * scale);
+    const prefix = c > 0.001 ? '+' : '';
+    ctx.fillText(`${prefix}${c.toFixed(xStep < 0.5 ? 2 : 1)}`, x, box.top + box.height + 19 * scale);
   }
 
-  // Y-axis ticks: Absolute Magnitude (M_G, inverted)
-  const yStep = bounds.maxAbsMag - bounds.minAbsMag > 8 ? 2 : 1;
+  // 4. Right Y-axis ticks: Absolute Magnitude (M_G) & Left Y-axis ticks: Luminosity (Sun = 1)
+  const yStep = bounds.maxAbsMag - bounds.minAbsMag > 10 ? 5 : 2;
   const firstY = Math.ceil(bounds.minAbsMag / yStep) * yStep;
   for (let m = firstY; m <= bounds.maxAbsMag + 1e-6; m += yStep) {
     const { y } = starToCanvasXY(0, m, box, bounds);
     if (y < box.top || y > box.top + box.height) continue;
+
+    // Right tick (Absolute Magnitude)
+    ctx.strokeStyle = scheme.axisTextColor;
     ctx.beginPath();
-    ctx.moveTo(box.left, y);
-    ctx.lineTo(box.left + box.width, y);
+    ctx.moveTo(box.left + box.width, y);
+    ctx.lineTo(box.left + box.width + 6 * scale, y);
     ctx.stroke();
 
-    ctx.textAlign = 'right';
-    ctx.fillText(`${m > 0 ? '+' : ''}${m}`, box.left - 10 * scale, y + 4 * scale);
+    ctx.fillStyle = scheme.titleTextColor;
+    ctx.textAlign = 'left';
+    ctx.fillText(`${m > 0 ? '+' : ''}${m}`, box.left + box.width + 10 * scale, y + 3.5 * scale);
   }
 
-  // Spectral classes along top margin
-  const spectralGuides: Array<{ label: string; bpRp: number }> = [
-    { label: 'B', bpRp: -0.15 },
-    { label: 'A', bpRp: 0.15 },
-    { label: 'F', bpRp: 0.5 },
-    { label: 'G (Sun)', bpRp: 0.82 },
-    { label: 'K', bpRp: 1.35 },
-    { label: 'M', bpRp: 2.4 },
+  // Left Y-axis decade ticks: Solar Luminosity (L / L_sun = 10^(0.4 * (4.67 - M_G)))
+  const lumDecades: Array<{ lumLabel: string; logLum: number }> = [
+    { lumLabel: '100 000', logLum: 5 },
+    { lumLabel: '10 000', logLum: 4 },
+    { lumLabel: '1000', logLum: 3 },
+    { lumLabel: '100', logLum: 2 },
+    { lumLabel: '10', logLum: 1 },
+    { lumLabel: '1', logLum: 0 },
+    { lumLabel: '0.1', logLum: -1 },
+    { lumLabel: '0.01', logLum: -2 },
+    { lumLabel: '0.001', logLum: -3 },
+    { lumLabel: '0.0001', logLum: -4 },
   ];
-  ctx.textAlign = 'center';
-  for (const sp of spectralGuides) {
-    const { x } = starToCanvasXY(sp.bpRp, 0, box, bounds);
-    if (x >= box.left && x <= box.left + box.width) {
-      ctx.fillStyle = bpRpToStarHexColor(sp.bpRp, schemeId);
-      ctx.fillText(sp.label, x, box.top - 12 * scale);
-    }
+  for (const dec of lumDecades) {
+    const absMag = 4.67 - 2.5 * dec.logLum;
+    const { y } = starToCanvasXY(0, absMag, box, bounds);
+    if (y < box.top + 6 || y > box.top + box.height - 6) continue;
+
+    ctx.strokeStyle = scheme.axisTextColor;
+    ctx.beginPath();
+    ctx.moveTo(box.left - 6 * scale, y);
+    ctx.lineTo(box.left, y);
+    ctx.stroke();
+
+    ctx.fillStyle = scheme.titleTextColor;
+    ctx.textAlign = 'right';
+    ctx.fillText(dec.lumLabel, box.left - 10 * scale, y + 3.5 * scale);
   }
 
   // Clip interior plot region
@@ -132,82 +187,62 @@ function renderHrDiagramCanvas(options: {
   ctx.rect(box.left, box.top, box.width, box.height);
   ctx.clip();
 
-  // Evolutionary region watermarks
-  ctx.fillStyle = scheme.watermarkColor;
-  ctx.font = `600 ${Math.round(11 * scale)}px "Inter", sans-serif`;
-  ctx.textAlign = 'center';
-
-  const msPos = starToCanvasXY(1.5, 7.8, box, bounds);
-  ctx.fillText('MAIN SEQUENCE', msPos.x, msPos.y);
-
-  const rgPos = starToCanvasXY(1.45, 0.4, box, bounds);
-  ctx.fillText('RED GIANTS', rgPos.x, rgPos.y);
-
-  const wdPos = starToCanvasXY(0.15, 13.0, box, bounds);
-  ctx.fillText('WHITE DWARFS', wdPos.x, wdPos.y);
-
-  // Reference marker for the Sun (G_BP - G_RP = 0.82, M_G = 4.67)
-  const sunPos = starToCanvasXY(0.82, 4.67, box, bounds);
-  const sunColor = bpRpToStarHexColor(0.82, schemeId);
-  ctx.strokeStyle = sunColor;
-  ctx.globalAlpha = 0.75;
-  ctx.lineWidth = 1.4 * scale;
-  ctx.beginPath();
-  ctx.arc(sunPos.x, sunPos.y, 6 * scale, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.fillStyle = sunColor;
-  ctx.font = `${Math.round(10 * scale)}px "JetBrains Mono", monospace`;
-  ctx.textAlign = 'left';
-  ctx.fillText('☉ Sun', sunPos.x + 9 * scale, sunPos.y + 3 * scale);
-
-  // 3. Plot live Gaia stars
+  // 5. Plot live Gaia stars first as fine stardust points
+  ctx.save();
+  if (!isLightTheme) {
+    ctx.globalCompositeOperation = 'lighter';
+  }
   for (const { star } of stars) {
     if (star.bpRp === null || star.absoluteMagG === null) continue;
     const { x, y } = starToCanvasXY(star.bpRp, star.absoluteMagG, box, bounds);
-    if (x < box.left - 10 || x > box.left + box.width + 10) continue;
-    if (y < box.top - 10 || y > box.top + box.height + 10) continue;
+    if (x < box.left - 6 || x > box.left + box.width + 6) continue;
+    if (y < box.top - 6 || y > box.top + box.height + 6) continue;
 
     const color = bpRpToStarHexColor(star.bpRp, schemeId);
-    const radius = Math.max(1.7, Math.min(3.9, (14 - star.absoluteMagG) * 0.22)) * scale;
+    const radius = computeStarCanvasRadius(star.absoluteMagG, scale);
 
     ctx.beginPath();
     ctx.arc(x, y, radius, 0, Math.PI * 2);
     ctx.fillStyle = color;
-    ctx.globalAlpha = 0.86;
+    ctx.globalAlpha = isLightTheme ? 0.82 : 0.78;
     ctx.fill();
   }
+  ctx.restore();
 
   // Highlight hovered star
   if (hoveredStar && hoveredStar.bpRp !== null && hoveredStar.absoluteMagG !== null) {
     const { x, y } = starToCanvasXY(hoveredStar.bpRp, hoveredStar.absoluteMagG, box, bounds);
     ctx.globalAlpha = 1;
     ctx.strokeStyle = '#38bdf8';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.arc(x, y, 7.5, 0, Math.PI * 2);
+    ctx.arc(x, y, 5, 0, Math.PI * 2);
     ctx.stroke();
   }
   ctx.restore();
 
-  // Plot frame border
-  ctx.strokeStyle = scheme.gridColor;
-  ctx.lineWidth = 1 * scale;
+  // Crisp outer plot frame border (Wikipedia / Powell style)
+  ctx.strokeStyle = isLightTheme ? '#334155' : 'rgba(203, 213, 225, 0.75)';
+  ctx.lineWidth = 1.2 * scale;
   ctx.strokeRect(box.left, box.top, box.width, box.height);
 
   // Axis titles
-  ctx.fillStyle = scheme.titleTextColor;
-  ctx.font = `500 ${Math.round(12 * scale)}px "Inter", sans-serif`;
+  ctx.fillStyle = scheme.axisTextColor;
+  ctx.font = `500 ${Math.round(11.5 * scale)}px "Inter", sans-serif`;
   ctx.textAlign = 'center';
-  ctx.fillText(
-    'Color Index (G_BP − G_RP)  [← Hot Blue  |  Cool Red →]',
-    box.left + box.width / 2,
-    height - 15 * scale
-  );
+  ctx.fillText('Colour Index (G_BP − G_RP)', box.left + box.width / 2, height - 12 * scale);
+
+  ctx.fillStyle = scheme.titleTextColor;
+  ctx.save();
+  ctx.translate(16 * scale, box.top + box.height / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('Luminosity (Sun = 1)', 0, 0);
+  ctx.restore();
 
   ctx.save();
-  ctx.translate(20 * scale, box.top + box.height / 2);
-  ctx.rotate(-Math.PI / 2);
-  ctx.fillText('Absolute Magnitude (M_G)  [← Faint  |  Bright →]', 0, 0);
+  ctx.translate(width - 14 * scale, box.top + box.height / 2);
+  ctx.rotate(Math.PI / 2);
+  ctx.fillText('Absolute Magnitude (M_G)', 0, 0);
   ctx.restore();
 }
 
@@ -413,21 +448,7 @@ export default function App() {
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
-    let closest: TaggedStar | null = null;
-    let minDistSq = 110; // ~10.5px hover radius
-
-    for (const item of taggedStars) {
-      const { star } = item;
-      if (star.bpRp === null || star.absoluteMagG === null) continue;
-      const { x, y } = starToCanvasXY(star.bpRp, star.absoluteMagG, box, bounds);
-      const dx = x - mouseX;
-      const dy = y - mouseY;
-      const d2 = dx * dx + dy * dy;
-      if (d2 < minDistSq) {
-        minDistSq = d2;
-        closest = item;
-      }
-    }
+    const closest = findClosestStarAtPoint(taggedStars, mouseX, mouseY, box, bounds, 12);
 
     if (closest) {
       setHovered({ item: closest, x: mouseX, y: mouseY });
