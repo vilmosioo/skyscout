@@ -4,7 +4,9 @@ import {
   bpRpToStarHexColor,
   clearStarCache,
   COLOR_SCHEMES,
+  computeStarCanvasRadius,
   fetchTargetStars,
+  findClosestStarAtPoint,
   getGaiaStarExternalUrls,
   getStarPhysicalDetails,
   HR_BOUNDS,
@@ -56,6 +58,25 @@ describe('StarPlot H–R Diagram Coordinate, Zoom/Pan & Color Schemes', () => {
     expect(brightStar.y).toBeLessThan(solarStar.y);
   });
 
+  it('computes fine stardust radii (0.55px–1.20px) while keeping 12px responsive hover hit-testing', () => {
+    const faintDwarfRadius = computeStarCanvasRadius(14.5);
+    const solarRadius = computeStarCanvasRadius(4.8);
+    const supergiantRadius = computeStarCanvasRadius(-8.0);
+
+    expect(faintDwarfRadius).toBeCloseTo(0.55, 2);
+    expect(solarRadius).toBeGreaterThan(faintDwarfRadius);
+    expect(solarRadius).toBeLessThan(1.0);
+    expect(supergiantRadius).toBeCloseTo(1.2, 2);
+
+    const { x, y } = starToCanvasXY(sampleStar.bpRp!, sampleStar.absoluteMagG!, box);
+    const items = [{ star: sampleStar, sourceLabel: 'Pleiades' }];
+
+    // Hovering 9px away from a pinpoint star still selects it
+    expect(findClosestStarAtPoint(items, x + 9, y - 5, box)).toBe(items[0]);
+    // Hovering 20px away misses cleanly
+    expect(findClosestStarAtPoint(items, x + 20, y, box)).toBeNull();
+  });
+
   it('zooms and pans H–R coordinate bounds around focal anchor points', () => {
     const zoomedIn = zoomHrBounds(HR_BOUNDS, 0.5, 0.5, 0.5);
     const origSpanX = HR_BOUNDS.maxBpRp - HR_BOUNDS.minBpRp;
@@ -76,8 +97,8 @@ describe('StarPlot H–R Diagram Coordinate, Zoom/Pan & Color Schemes', () => {
       'print-light',
     ]);
 
-    expect(bpRpToStarHexColor(-0.4, 'blackbody')).toBe('#60a5fa');
-    expect(bpRpToStarHexColor(0.82, 'blackbody')).toBe('#fde047');
+    expect(bpRpToStarHexColor(-0.45, 'blackbody')).toBe('#6ed7ff');
+    expect(bpRpToStarHexColor(0.82, 'blackbody')).toBe('#ffea00');
 
     // Different color schemes produce distinct palettes
     const bb = bpRpToStarHexColor(0.82, 'blackbody');
@@ -161,6 +182,27 @@ describe('fetchTargetStars Live Dispatch & Local Caching', () => {
     expect(second).toEqual([sampleStar]);
     expect(spy).toHaveBeenCalledTimes(1);
     expect(mockStorage.getItem).toHaveBeenCalled();
+  });
+
+  it('deduplicates concurrent in-flight requests for the same target (e.g. React StrictMode double-mount)', async () => {
+    const client = new GaiaClient({ fetch: vi.fn() as unknown as typeof fetch });
+    let resolveNetwork!: (value: GaiaStar[]) => void;
+    const spy = vi.spyOn(client, 'searchStars').mockImplementation(
+      () =>
+        new Promise<GaiaStar[]>((resolve) => {
+          resolveNetwork = resolve;
+        })
+    );
+
+    const p1 = fetchTargetStars(client, 'solar-50pc', 1000);
+    const p2 = fetchTargetStars(client, 'solar-50pc', 1000);
+
+    expect(spy).toHaveBeenCalledTimes(1);
+
+    resolveNetwork([sampleStar]);
+    const [r1, r2] = await Promise.all([p1, p2]);
+    expect(r1).toEqual([sampleStar]);
+    expect(r2).toEqual([sampleStar]);
   });
 
   it('dispatches open and globular cluster presets to client.coneSearch', async () => {
