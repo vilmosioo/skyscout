@@ -21,12 +21,17 @@ export async function onRequest(context: {
     'https://gea.esac.esa.int/tap-server/tap/'
   );
 
+  const forwardHeaders = new Headers();
+  forwardHeaders.set('User-Agent', 'SkyScout-StarPlot/1.0 (https://vilmosioo.dev)');
+  forwardHeaders.set('Accept', request.headers.get('Accept') || 'application/json');
+  const contentType = request.headers.get('Content-Type');
+  if (contentType) {
+    forwardHeaders.set('Content-Type', contentType);
+  }
+
   const init: RequestInit = {
     method: request.method,
-    headers: {
-      'User-Agent': 'SkyScout-StarPlot/1.0 (https://vilmosioo.dev)',
-      Accept: request.headers.get('Accept') || 'application/json',
-    },
+    headers: forwardHeaders,
   };
 
   if (request.method !== 'GET' && request.method !== 'HEAD') {
