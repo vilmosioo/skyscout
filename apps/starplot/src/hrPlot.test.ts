@@ -4,13 +4,17 @@ import {
   bpRpToStarHexColor,
   clearStarCache,
   COLOR_SCHEMES,
+  computeConstantRadiusCurve,
   computeStarCanvasRadius,
+  fetchCustomConeStars,
   fetchTargetStars,
   findClosestStarAtPoint,
+  generateClusterPreviewPoints,
   getGaiaStarExternalUrls,
   getStarPhysicalDetails,
   HR_BOUNDS,
   panHrBounds,
+  searchCatalogPresets,
   starToCanvasXY,
   TARGET_PRESETS,
   toggleTargetSelection,
@@ -122,13 +126,33 @@ describe('StarPlot H–R Diagram Coordinate, Zoom/Pan & Color Schemes', () => {
 });
 
 describe('Expanded Messier & Famous Clusters Catalog + Multi-Select', () => {
-  it('provides 16 curated presets across Solar Neighborhood, Open Clusters, and Globular Clusters', () => {
-    expect(TARGET_PRESETS.length).toBe(16);
+  it('provides 33 curated presets across Solar Neighborhood, Open Clusters, and Globular Clusters', () => {
+    expect(TARGET_PRESETS.length).toBe(33);
     const solarVolumes = TARGET_PRESETS.filter((p) => p.category === 'Solar Volume');
     expect(solarVolumes.map((p) => p.id)).toEqual(['solar-50pc']);
     expect(TARGET_PRESETS.some((p) => p.id === 'm13')).toBe(true);
     expect(TARGET_PRESETS.some((p) => p.id === 'omega-centauri')).toBe(true);
     expect(TARGET_PRESETS.some((p) => p.id === 'double-cluster')).toBe(true);
+    expect(TARGET_PRESETS.some((p) => p.id === 'ngc-188')).toBe(true);
+  });
+
+  it('filters catalog presets by category and search query, and generates deterministic preview points', () => {
+    const scorp = searchCatalogPresets('Scorpius', 'All');
+    expect(scorp.length).toBeGreaterThanOrEqual(4);
+
+    const globularM13 = searchCatalogPresets('M13', 'Globular Cluster');
+    expect(globularM13.map((p) => p.id)).toEqual(['m13']);
+
+    const previewPts = generateClusterPreviewPoints(globularM13[0]);
+    expect(previewPts.length).toBeGreaterThan(150);
+  });
+
+  it('computes constant-radius Stefan-Boltzmann curves', () => {
+    const curve1Solar = computeConstantRadiusCurve(1, 30);
+    const curve100Solar = computeConstantRadiusCurve(100, 30);
+    expect(curve1Solar.length).toBe(30);
+    // At the same temperature/color, a 100 R☉ star is 10,000x more luminous (10 mag brighter) than a 1 R☉ star
+    expect(curve100Solar[10].absoluteMagG).toBeCloseTo(curve1Solar[10].absoluteMagG - 10, 4);
   });
 
   it('allows selecting and removing any target when clicking on it again', () => {
@@ -224,6 +248,20 @@ describe('fetchTargetStars Live Dispatch & Local Caching', () => {
         ra: 250.423,
         dec: 36.46,
         limit: 700,
+      })
+    );
+
+    await fetchCustomConeStars(
+      client,
+      { name: 'NGC 752', ra: 29.421, dec: 37.785, radiusDeg: 0.65, minDistancePc: 380, maxDistancePc: 520 },
+      800
+    );
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ra: 29.421,
+        dec: 37.785,
+        radiusDeg: 0.65,
+        limit: 800,
       })
     );
   });

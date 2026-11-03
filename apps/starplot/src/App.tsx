@@ -1,22 +1,31 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, Route, Switch, useLocation, useParams, useSearch } from 'wouter';
 import { formatDms, formatHms } from '@skyscout/core';
 import { GaiaClient, type GaiaStar } from '@skyscout/gaia-client';
 import {
   bpRpToStarHexColor,
   COLOR_SCHEMES,
   type ColorSchemeId,
+  computeConstantRadiusCurve,
   computeStarCanvasRadius,
+  type CustomConeTarget,
+  fetchCustomConeStars,
   fetchTargetStars,
   findClosestStarAtPoint,
+  generateClusterPreviewPoints,
+  getCachedTargetStars,
   getGaiaStarExternalUrls,
   getStarPhysicalDetails,
   HR_BOUNDS,
   type HrBounds,
   panHrBounds,
   type PlotBox,
+  RADIUS_LINES_SOLAR,
+  searchCatalogPresets,
   starToCanvasXY,
   TARGET_PRESETS,
   type TargetCategory,
+  type TargetPreset,
   type TargetPresetId,
   toggleTargetSelection,
   zoomHrBounds,
@@ -42,13 +51,29 @@ function renderHrDiagramCanvas(options: {
   bounds: HrBounds;
   schemeId: ColorSchemeId;
   stars: TaggedStar[];
+  diagramTitle?: string;
+  diagramMeta?: string;
+  showRadiusLines?: boolean;
   hoveredStar?: GaiaStar | null;
   posterHeader?: {
     title: string;
     subtitle: string;
   };
 }) {
-  const { ctx, width, height, box, bounds, schemeId, stars, hoveredStar, posterHeader } = options;
+  const {
+    ctx,
+    width,
+    height,
+    box,
+    bounds,
+    schemeId,
+    stars,
+    diagramTitle,
+    diagramMeta,
+    showRadiusLines = false,
+    hoveredStar,
+    posterHeader,
+  } = options;
   const scheme = COLOR_SCHEMES[schemeId];
   const scale = posterHeader ? 2.2 : 1;
   const isLightTheme = schemeId === 'print-light';
@@ -60,19 +85,19 @@ function renderHrDiagramCanvas(options: {
   // Optional Poster Title Header & Footer
   if (posterHeader) {
     ctx.fillStyle = scheme.titleTextColor;
-    ctx.font = `700 ${Math.round(28 * scale)}px "Inter", sans-serif`;
+    ctx.font = `700 ${Math.round(26 * scale)}px "Inter", sans-serif`;
     ctx.textAlign = 'left';
-    ctx.fillText(posterHeader.title, box.left, Math.round(52 * scale));
+    ctx.fillText(posterHeader.title, box.left, Math.round(44 * scale));
 
     ctx.fillStyle = scheme.axisTextColor;
-    ctx.font = `400 ${Math.round(13 * scale)}px "JetBrains Mono", monospace`;
-    ctx.fillText(posterHeader.subtitle, box.left, Math.round(76 * scale));
+    ctx.font = `400 ${Math.round(12.5 * scale)}px "JetBrains Mono", monospace`;
+    ctx.fillText(posterHeader.subtitle, box.left, Math.round(68 * scale));
 
     ctx.textAlign = 'right';
     ctx.fillText(
       `${stars.length.toLocaleString()} Stars · ESA Gaia DR3 · SkyScout StarPlot`,
       box.left + box.width,
-      Math.round(76 * scale)
+      Math.round(68 * scale)
     );
   }
 
@@ -187,6 +212,36 @@ function renderHrDiagramCanvas(options: {
   ctx.rect(box.left, box.top, box.width, box.height);
   ctx.clip();
 
+  // Optional Constant Stellar Radius Overlay Lines (0.01 R☉ to 1000 R☉)
+  if (showRadiusLines) {
+    ctx.save();
+    ctx.strokeStyle = isLightTheme ? 'rgba(15, 23, 42, 0.22)' : 'rgba(148, 163, 184, 0.25)';
+    ctx.fillStyle = isLightTheme ? 'rgba(15, 23, 42, 0.55)' : 'rgba(148, 163, 184, 0.65)';
+    ctx.lineWidth = 1 * scale;
+    ctx.setLineDash([4 * scale, 4 * scale]);
+    ctx.font = `${Math.round(9.5 * scale)}px "JetBrains Mono", monospace`;
+    ctx.textAlign = 'left';
+
+    for (const rSolar of RADIUS_LINES_SOLAR) {
+      const curve = computeConstantRadiusCurve(rSolar, 42);
+      ctx.beginPath();
+      curve.forEach((pt, idx) => {
+        const { x, y } = starToCanvasXY(pt.bpRp, pt.absoluteMagG, box, bounds);
+        if (idx === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+
+      // Label near the middle-left of each constant-radius curve
+      const labelAnchor = curve[6];
+      if (labelAnchor) {
+        const pos = starToCanvasXY(labelAnchor.bpRp, labelAnchor.absoluteMagG, box, bounds);
+        ctx.fillText(`${rSolar} R☉`, pos.x + 4 * scale, pos.y - 4 * scale);
+      }
+    }
+    ctx.restore();
+  }
+
   // 5. Plot live Gaia stars first as fine stardust points
   ctx.save();
   if (!isLightTheme) {
@@ -219,6 +274,25 @@ function renderHrDiagramCanvas(options: {
     ctx.arc(x, y, 5, 0, Math.PI * 2);
     ctx.stroke();
   }
+
+  // Target star cluster name & metadata watermark in upper-right corner of diagram
+  if (diagramTitle) {
+    ctx.save();
+    ctx.textAlign = 'right';
+    ctx.fillStyle = isLightTheme ? '#0f172a' : '#f8fafc';
+    ctx.globalAlpha = 0.9;
+    ctx.font = `600 ${Math.round(13.5 * scale)}px "Inter", sans-serif`;
+    ctx.fillText(diagramTitle, box.left + box.width - 14 * scale, box.top + 24 * scale);
+
+    if (diagramMeta) {
+      ctx.fillStyle = scheme.axisTextColor;
+      ctx.globalAlpha = 0.8;
+      ctx.font = `400 ${Math.round(10.5 * scale)}px "JetBrains Mono", monospace`;
+      ctx.fillText(diagramMeta, box.left + box.width - 14 * scale, box.top + 41 * scale);
+    }
+    ctx.restore();
+  }
+
   ctx.restore();
 
   // Crisp outer plot frame border (Wikipedia / Powell style)
@@ -246,19 +320,356 @@ function renderHrDiagramCanvas(options: {
   ctx.restore();
 }
 
-export default function App() {
+/**
+ * Renders a fast, zero-network mini H–R diagram thumbnail card on the `/` Home Page Grid.
+ * Uses real cached Gaia DR3 stars from `localStorage` if already fetched, or deterministic
+ * cluster preview points (`generateClusterPreviewPoints`) so all 32 cards render in 0ms.
+ */
+function ClusterGridCard({ preset }: { preset: TargetPreset }) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const cachedStars = useMemo(() => getCachedTargetStars(preset.id, 1000), [preset.id]);
+
+  const points = useMemo(() => {
+    if (cachedStars && cachedStars.length > 0) {
+      return cachedStars
+        .filter((s) => s.bpRp !== null && s.absoluteMagG !== null)
+        .map((s) => ({ bpRp: s.bpRp!, absoluteMagG: s.absoluteMagG! }));
+    }
+    return generateClusterPreviewPoints(preset);
+  }, [cachedStars, preset]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const dpr = window.devicePixelRatio || 1;
+    const width = 280;
+    const height = 152;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, width, height);
+
+    const box: PlotBox = { left: 10, top: 10, width: width - 20, height: height - 20 };
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (const pt of points) {
+      const { x, y } = starToCanvasXY(pt.bpRp, pt.absoluteMagG, box, HR_BOUNDS);
+      if (x < box.left || x > box.left + box.width || y < box.top || y > box.top + box.height) {
+        continue;
+      }
+      ctx.beginPath();
+      ctx.arc(x, y, 0.9, 0, Math.PI * 2);
+      ctx.fillStyle = bpRpToStarHexColor(pt.bpRp, 'blackbody');
+      ctx.globalAlpha = 0.85;
+      ctx.fill();
+    }
+    ctx.restore();
+
+    ctx.strokeStyle = 'rgba(203, 213, 225, 0.25)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(box.left, box.top, box.width, box.height);
+  }, [points]);
+
+  return (
+    <Link href={`/chart/${preset.id}`} className="cluster-card">
+      <div className="cluster-card-top">
+        <div className="cluster-card-badges">
+          <span className="catalog-code-badge">{preset.catalogCode ?? preset.shortName}</span>
+          <span className={`category-pill ${preset.category.toLowerCase().replace(' ', '-')}`}>
+            {preset.category}
+          </span>
+        </div>
+      </div>
+
+      <div className="cluster-thumb-wrap">
+        <canvas ref={canvasRef} className="cluster-thumb-canvas" />
+        <span className="thumb-age-badge">{preset.age}</span>
+      </div>
+
+      <div className="cluster-card-body">
+        <h3 className="cluster-card-title">{preset.label}</h3>
+        <div className="cluster-card-meta">
+          <span>{preset.constellation ?? 'All-Sky'}</span>
+          <span>•</span>
+          <span>
+            {preset.distancePcApprox >= 1000
+              ? `~${(preset.distancePcApprox / 1000).toFixed(1)} kpc`
+              : `~${preset.distancePcApprox} pc`}
+          </span>
+          {preset.cone && (
+            <>
+              <span>•</span>
+              <span>
+                {formatHms(preset.cone.ra, 0)} {formatDms(preset.cone.dec, 0)}
+              </span>
+            </>
+          )}
+        </div>
+        <p className="cluster-card-subtitle">{preset.subtitle}</p>
+      </div>
+
+      <div className="cluster-card-footer">
+        <span>Open Interactive H–R Diagram</span>
+        <span className="arrow-right">→</span>
+      </div>
+    </Link>
+  );
+}
+
+/**
+ * `/` Home Page: Grid display of all 32 Messier, NGC & Caldwell star clusters + Custom Sky Cone Search.
+ */
+function HomeCatalogView() {
+  const [, setLocation] = useLocation();
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [activeCategory, setActiveCategory] = useState<TargetCategory | 'All'>('All');
+  const [showCustomCone, setShowCustomCone] = useState<boolean>(false);
+
+  // Custom Cone Search Form State (defaults to NGC 752 in Andromeda as a ready-to-run example)
+  const [customName, setCustomName] = useState<string>('NGC 752');
+  const [customRa, setCustomRa] = useState<string>('29.421');
+  const [customDec, setCustomDec] = useState<string>('37.785');
+  const [customRadius, setCustomRadius] = useState<string>('0.65');
+  const [customMinDist, setCustomMinDist] = useState<string>('380');
+  const [customMaxDist, setCustomMaxDist] = useState<string>('520');
+
+  const filteredPresets = useMemo(
+    () => searchCatalogPresets(searchQuery, activeCategory),
+    [searchQuery, activeCategory]
+  );
+
+  const counts = useMemo(() => {
+    return {
+      All: TARGET_PRESETS.length,
+      'Open Cluster': TARGET_PRESETS.filter((p) => p.category === 'Open Cluster').length,
+      'Globular Cluster': TARGET_PRESETS.filter((p) => p.category === 'Globular Cluster').length,
+      'Solar Volume': TARGET_PRESETS.filter((p) => p.category === 'Solar Volume').length,
+    };
+  }, []);
+
+  const handleCustomSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const params = new URLSearchParams({
+      name: customName.trim() || 'Custom Sky Field',
+      ra: customRa,
+      dec: customDec,
+      radius: customRadius,
+      minDist: customMinDist,
+      maxDist: customMaxDist,
+    });
+    setLocation(`/chart/custom?${params.toString()}`);
+  };
+
+  return (
+    <div className="app">
+      <header className="header">
+        <div className="title-group">
+          <h1>
+            ✨ StarPlot <span className="badge">ESA Gaia DR3 Live</span>
+          </h1>
+          <p className="subtitle">
+            Explore {TARGET_PRESETS.length} Messier, NGC &amp; Caldwell Star Clusters across Stellar
+            Evolution
+          </p>
+        </div>
+
+        <div className="toolbar-actions">
+          <button
+            type="button"
+            className={`action-btn ${showCustomCone ? 'primary' : ''}`}
+            onClick={() => setShowCustomCone((v) => !v)}
+          >
+            🔭 Custom Sky Cone Search
+          </button>
+          <Link href="/chart/solar-50pc" className="action-btn primary">
+            📈 Open Multi-Cluster Chart →
+          </Link>
+        </div>
+      </header>
+
+      {showCustomCone && (
+        <form className="custom-cone-panel" onSubmit={handleCustomSubmit}>
+          <div className="custom-cone-header">
+            <strong>🔭 Custom Gaia DR3 Sky Cone Search</strong>
+            <span>Query any NGC / IC / Messier cluster or Milky Way coordinate field</span>
+          </div>
+          <div className="custom-cone-fields">
+            <label>
+              <span>Target Label</span>
+              <input
+                type="text"
+                value={customName}
+                onChange={(e) => setCustomName(e.target.value)}
+                placeholder="e.g. NGC 752"
+                required
+              />
+            </label>
+            <label>
+              <span>RA (° ICRS)</span>
+              <input
+                type="number"
+                step="any"
+                min="0"
+                max="360"
+                value={customRa}
+                onChange={(e) => setCustomRa(e.target.value)}
+                required
+              />
+            </label>
+            <label>
+              <span>Dec (° ICRS)</span>
+              <input
+                type="number"
+                step="any"
+                min="-90"
+                max="90"
+                value={customDec}
+                onChange={(e) => setCustomDec(e.target.value)}
+                required
+              />
+            </label>
+            <label>
+              <span>Radius (°)</span>
+              <input
+                type="number"
+                step="any"
+                min="0.05"
+                max="10"
+                value={customRadius}
+                onChange={(e) => setCustomRadius(e.target.value)}
+                required
+              />
+            </label>
+            <label>
+              <span>Min Dist (pc)</span>
+              <input
+                type="number"
+                step="any"
+                min="1"
+                value={customMinDist}
+                onChange={(e) => setCustomMinDist(e.target.value)}
+              />
+            </label>
+            <label>
+              <span>Max Dist (pc)</span>
+              <input
+                type="number"
+                step="any"
+                min="1"
+                value={customMaxDist}
+                onChange={(e) => setCustomMaxDist(e.target.value)}
+              />
+            </label>
+            <button type="submit" className="action-btn primary">
+              Plot Region →
+            </button>
+          </div>
+        </form>
+      )}
+
+      <div className="home-filter-bar">
+        <div className="category-tabs">
+          {(['All', 'Open Cluster', 'Globular Cluster', 'Solar Volume'] as const).map((cat) => (
+            <button
+              key={cat}
+              type="button"
+              className={`preset-btn ${activeCategory === cat ? 'active' : ''}`}
+              onClick={() => setActiveCategory(cat)}
+            >
+              {cat === 'All' ? 'All Clusters' : `${cat}s`} ({counts[cat]})
+            </button>
+          ))}
+        </div>
+
+        <input
+          type="search"
+          className="cluster-search-input"
+          placeholder="Search Messier (M45, M13, M67), NGC, name, or constellation..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+      </div>
+
+      {filteredPresets.length === 0 ? (
+        <div className="empty-grid-state">
+          <p>No curated clusters matched &ldquo;{searchQuery}&rdquo;.</p>
+          <button
+            type="button"
+            className="action-btn primary"
+            onClick={() => setShowCustomCone(true)}
+          >
+            🔭 Query Custom Coordinates on ESA Gaia DR3
+          </button>
+        </div>
+      ) : (
+        <div className="cluster-grid">
+          {filteredPresets.map((preset) => (
+            <ClusterGridCard key={preset.id} preset={preset} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * `/chart/:id` Interactive H–R Diagram View:
+ * Plots the selected `:id` cluster (or custom cone query) and allows layering additional clusters,
+ * toggling Famous Benchmark Stars, and toggling Constant Stellar Radius (`R☉`) lines.
+ */
+function ChartView() {
+  const params = useParams<{ id: string }>();
+  const searchString = useSearch();
+  const routeId = params.id ?? 'solar-50pc';
+
   const client = useMemo(() => {
     const endpoint = import.meta.env.VITE_GAIA_ENDPOINT || '/gaia-tap';
     return new GaiaClient({ endpoint });
   }, []);
 
-  const [selectedTargets, setSelectedTargets] = useState<TargetPresetId[]>(['solar-50pc']);
+  const customTarget = useMemo<CustomConeTarget | null>(() => {
+    if (routeId !== 'custom') return null;
+    const sp = new URLSearchParams(searchString);
+    const ra = Number(sp.get('ra') ?? 56.75);
+    const dec = Number(sp.get('dec') ?? 24.12);
+    const radiusDeg = Number(sp.get('radius') ?? 0.6);
+    const minDist = Number(sp.get('minDist') ?? 0);
+    const maxDist = Number(sp.get('maxDist') ?? 0);
+    return {
+      name: sp.get('name') || 'Custom Field',
+      ra: Number.isFinite(ra) ? ra : 56.75,
+      dec: Number.isFinite(dec) ? dec : 24.12,
+      radiusDeg: Number.isFinite(radiusDeg) ? radiusDeg : 0.6,
+      minDistancePc: minDist > 0 ? minDist : undefined,
+      maxDistancePc: maxDist > 0 ? maxDist : undefined,
+    };
+  }, [routeId, searchString]);
+
+  const initialPresetId = useMemo<TargetPresetId[]>(() => {
+    if (routeId === 'custom') return [];
+    const found = TARGET_PRESETS.find((p) => p.id === routeId);
+    return found ? [found.id] : ['solar-50pc'];
+  }, [routeId]);
+
+  const [selectedTargets, setSelectedTargets] = useState<TargetPresetId[]>(initialPresetId);
   const [schemeId, setSchemeId] = useState<ColorSchemeId>('blackbody');
+  const [showRadiusLines, setShowRadiusLines] = useState<boolean>(false);
   const [bounds, setBounds] = useState<HrBounds>(HR_BOUNDS);
   const [taggedStars, setTaggedStars] = useState<TaggedStar[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [elapsedMs, setElapsedMs] = useState<number | null>(null);
+
+  // Sync selectedTargets when navigating to a new `/chart/:id` route
+  useEffect(() => {
+    setSelectedTargets(initialPresetId);
+    setBounds(HR_BOUNDS);
+  }, [initialPresetId]);
 
   const [hovered, setHovered] = useState<{
     item: TaggedStar;
@@ -286,7 +697,7 @@ export default function App() {
 
   // Fetch (or read from localStorage cache) stars for all selected targets
   useEffect(() => {
-    if (selectedTargets.length === 0) {
+    if (selectedTargets.length === 0 && !customTarget) {
       setTaggedStars([]);
       setLoading(false);
       setElapsedMs(null);
@@ -300,13 +711,24 @@ export default function App() {
     setError(null);
     const t0 = performance.now();
 
-    Promise.all(
-      selectedTargets.map(async (id) => {
+    const tasks: Array<Promise<{ sourceLabel: string; list: GaiaStar[] }>> = selectedTargets.map(
+      async (id) => {
         const preset = TARGET_PRESETS.find((p) => p.id === id);
         const list = await fetchTargetStars(client, id, 1000);
         return { sourceLabel: preset?.shortName ?? id, list };
-      })
-    )
+      }
+    );
+
+    if (customTarget) {
+      tasks.unshift(
+        fetchCustomConeStars(client, customTarget, 1000).then((list) => ({
+          sourceLabel: customTarget.name,
+          list,
+        }))
+      );
+    }
+
+    Promise.all(tasks)
       .then((results) => {
         if (cancelled) return;
         const uniqueMap = new Map<string, TaggedStar>();
@@ -329,9 +751,42 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [client, selectedTargets]);
+  }, [client, customTarget, selectedTargets]);
 
   const activeStarSelection = pinned ?? hovered;
+
+  const activePresets = useMemo(
+    () => TARGET_PRESETS.filter((p) => selectedTargets.includes(p.id)),
+    [selectedTargets]
+  );
+
+  const activeTitle = useMemo(() => {
+    const names = [
+      ...(customTarget ? [`${customTarget.name} (Custom Cone)`] : []),
+      ...activePresets.map((p) => p.label),
+    ];
+    return names.length > 0
+      ? names.join('  +  ')
+      : 'No sources selected — click any cluster below to plot';
+  }, [activePresets, customTarget]);
+
+  const diagramMeta = useMemo(() => {
+    if (activePresets.length === 1 && !customTarget) {
+      const p = activePresets[0];
+      const distStr =
+        p.distancePcApprox >= 1000
+          ? `~${(p.distancePcApprox / 1000).toFixed(1)} kpc`
+          : `~${p.distancePcApprox} pc`;
+      return `${p.category} · ${p.age} · ${distStr}`;
+    }
+    if (customTarget && activePresets.length === 0) {
+      return `RA ${customTarget.ra.toFixed(2)}°  Dec ${customTarget.dec.toFixed(2)}°  r=${customTarget.radiusDeg}°`;
+    }
+    if (activePresets.length > 1) {
+      return `${activePresets.length} Clusters Combined · ${taggedStars.length.toLocaleString()} Stars`;
+    }
+    return '';
+  }, [activePresets, customTarget, taggedStars.length]);
 
   // Draw the H–R Diagram onto the HTML5 Canvas
   useEffect(() => {
@@ -345,30 +800,42 @@ export default function App() {
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    ctx.scale(dpr, dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    const width = rect.width;
-    const height = rect.height;
     const box: PlotBox = {
       left: PADDING.left,
       top: PADDING.top,
-      width: width - PADDING.left - PADDING.right,
-      height: height - PADDING.top - PADDING.bottom,
+      width: rect.width - PADDING.left - PADDING.right,
+      height: rect.height - PADDING.top - PADDING.bottom,
     };
 
     renderHrDiagramCanvas({
       ctx,
-      width,
-      height,
+      width: rect.width,
+      height: rect.height,
       box,
       bounds,
       schemeId,
       stars: taggedStars,
+      diagramTitle: selectedTargets.length > 0 || customTarget ? activeTitle : undefined,
+      diagramMeta: diagramMeta || undefined,
+      showRadiusLines,
       hoveredStar: activeStarSelection?.item.star ?? null,
     });
-  }, [taggedStars, activeStarSelection, bounds, schemeId]);
+  }, [
+    activeStarSelection,
+    activeTitle,
+    bounds,
+    customTarget,
+    diagramMeta,
+    schemeId,
+    selectedTargets.length,
+    showRadiusLines,
+    taggedStars,
+  ]);
 
   // Mouse wheel zoom centered at cursor position
+  // Attach non-passive wheel listener for smooth zoom around cursor
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -376,16 +843,17 @@ export default function App() {
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const rect = canvas.getBoundingClientRect();
-      const boxWidth = rect.width - PADDING.left - PADDING.right;
-      const boxHeight = rect.height - PADDING.top - PADDING.bottom;
-
-      const anchorXNorm = Math.max(0, Math.min(1, (e.clientX - rect.left - PADDING.left) / boxWidth));
-      const anchorYNorm = Math.max(0, Math.min(1, (e.clientY - rect.top - PADDING.top) / boxHeight));
+      const box: PlotBox = {
+        left: PADDING.left,
+        top: PADDING.top,
+        width: rect.width - PADDING.left - PADDING.right,
+        height: rect.height - PADDING.top - PADDING.bottom,
+      };
+      const anchorX = Math.max(0, Math.min(1, (e.clientX - rect.left - box.left) / box.width));
+      const anchorY = Math.max(0, Math.min(1, (e.clientY - rect.top - box.top) / box.height));
       const scaleFactor = e.deltaY < 0 ? 0.84 : 1.19;
 
-      setBounds((prev) => zoomHrBounds(prev, scaleFactor, anchorXNorm, anchorYNorm));
-      setHovered(null);
-      setPinned(null);
+      setBounds((prev) => zoomHrBounds(prev, scaleFactor, anchorX, anchorY));
     };
 
     canvas.addEventListener('wheel', onWheel, { passive: false });
@@ -457,16 +925,6 @@ export default function App() {
     }
   };
 
-  const activePresets = useMemo(
-    () => TARGET_PRESETS.filter((p) => selectedTargets.includes(p.id)),
-    [selectedTargets]
-  );
-
-  const activeTitle =
-    activePresets.length > 0
-      ? activePresets.map((p) => p.shortName).join(' + ')
-      : 'No sources selected — click any cluster below to plot';
-
   // Export High-Resolution Print Poster (3600 x 2400 px PNG)
   const handleExportPoster = useCallback(() => {
     const width = 3000;
@@ -478,10 +936,10 @@ export default function App() {
     if (!ctx) return;
 
     const posterBox: PlotBox = {
-      left: 160,
-      top: 220,
-      width: width - 240,
-      height: height - 340,
+      left: 180,
+      top: 290,
+      width: width - 320,
+      height: height - 440,
     };
 
     renderHrDiagramCanvas({
@@ -492,21 +950,22 @@ export default function App() {
       bounds,
       schemeId,
       stars: taggedStars,
+      showRadiusLines,
       posterHeader: {
         title: 'HERTZSPRUNG–RUSSELL DIAGRAM',
-        subtitle: activePresets.map((p) => `${p.label} (${p.age})`).join('  •  '),
+        subtitle: activeTitle,
       },
     });
 
     const dataUrl = offscreen.toDataURL('image/png');
     const link = document.createElement('a');
     link.href = dataUrl;
-    const slug = selectedTargets.slice(0, 3).join('-');
+    const slug = selectedTargets.slice(0, 3).join('-') || 'custom';
     link.download = `starplot-hr-poster-${slug}-${schemeId}.png`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  }, [activePresets, bounds, schemeId, selectedTargets, taggedStars]);
+  }, [activeTitle, bounds, schemeId, selectedTargets, showRadiusLines, taggedStars]);
 
   const categories: TargetCategory[] = ['Solar Volume', 'Open Cluster', 'Globular Cluster'];
 
@@ -527,13 +986,25 @@ export default function App() {
     <div className="app">
       <header className="header">
         <div className="title-group">
-          <h1>
-            ✨ StarPlot <span className="badge">ESA Gaia DR3 Live</span>
-          </h1>
-          <p className="subtitle">{activeTitle}</p>
+          <div className="breadcrumb-row">
+            <Link href="/" className="back-grid-link">
+              ← All Clusters Grid ({TARGET_PRESETS.length})
+            </Link>
+            <span className="badge">ESA Gaia DR3 Live</span>
+          </div>
+          <h1>{activeTitle}</h1>
         </div>
 
         <div className="toolbar-actions">
+          <button
+            type="button"
+            className={`action-btn ${showRadiusLines ? 'primary' : ''}`}
+            onClick={() => setShowRadiusLines((v) => !v)}
+            title="Overlay constant stellar radius lines (0.01 R☉ to 1000 R☉)"
+          >
+            📏 Radius Lines (R☉)
+          </button>
+
           <select
             aria-label="Color Scheme"
             value={schemeId}
@@ -558,72 +1029,80 @@ export default function App() {
         </div>
       </header>
 
-      {/* Multi-Source Messier & Famous Clusters Selector */}
-      <section className="catalog-panel">
+      <div className="catalog-panel">
         <div className="catalog-header">
           <span className="catalog-title">
-            Stellar Groups & Messier Catalog ({selectedTargets.length} / {TARGET_PRESETS.length}{' '}
-            selected)
+            Layer &amp; Compare Sources ({selectedTargets.length} of {TARGET_PRESETS.length} active)
           </span>
           <div className="bulk-actions">
             <button
               type="button"
               className="bulk-btn"
-              disabled={selectedTargets.length === TARGET_PRESETS.length}
               onClick={() => setSelectedTargets(TARGET_PRESETS.map((p) => p.id))}
+              disabled={selectedTargets.length === TARGET_PRESETS.length}
             >
               ✓ Select All
             </button>
             <button
               type="button"
               className="bulk-btn"
+              onClick={() => {
+                setSelectedTargets([]);
+                setHovered(null);
+                setPinned(null);
+              }}
               disabled={selectedTargets.length === 0}
-              onClick={() => setSelectedTargets([])}
             >
               ✕ Select None
             </button>
           </div>
         </div>
-
         {categories.map((category) => (
           <div key={category} className="category-row">
             <span className="category-label">{category}:</span>
-            {TARGET_PRESETS.filter((p) => p.category === category).map((preset) => {
-              const isSelected = selectedTargets.includes(preset.id);
-              return (
-                <button
-                  key={preset.id}
-                  type="button"
-                  title={`${preset.label} — ${preset.subtitle} (${preset.age})`}
-                  aria-pressed={isSelected}
-                  onClick={() =>
-                    setSelectedTargets((prev) => toggleTargetSelection(prev, preset.id))
-                  }
-                  className={`preset-btn ${isSelected ? 'active' : ''}`}
-                >
-                  {isSelected ? '✓ ' : '+ '}
-                  {preset.shortName}
-                </button>
-              );
-            })}
+            <div className="preset-list">
+              {TARGET_PRESETS.filter((p) => p.category === category).map((preset) => {
+                const isSelected = selectedTargets.includes(preset.id);
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    className={`preset-btn ${isSelected ? 'active' : ''}`}
+                    onClick={() =>
+                      setSelectedTargets((prev) => toggleTargetSelection(prev, preset.id))
+                    }
+                    title={`${preset.label} — ${preset.subtitle} (click to ${
+                      isSelected ? 'remove' : 'add'
+                    })`}
+                  >
+                    {isSelected ? '✓ ' : '+ '}
+                    {preset.shortName}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         ))}
-      </section>
+      </div>
 
       <div className="status-bar">
-        <span>
-          {loading
-            ? `Fetching ESA Gaia TAP (${activeTitle})...`
-            : `Plotted ${taggedStars.length.toLocaleString()} stars across ${selectedTargets.length} ${
-                selectedTargets.length === 1 ? 'source' : 'sources'
-              }`}
-          {elapsedMs !== null &&
-            !loading &&
-            ` · ${elapsedMs < 15 ? `Cached (${elapsedMs} ms)` : `${elapsedMs} ms`}`}
-        </span>
+        <div>
+          {loading ? (
+            <span>Querying ESA Gaia Archive TAP (with localStorage cache)...</span>
+          ) : selectedTargets.length === 0 && !customTarget ? (
+            <span>0 stars plotted · Select one or more clusters above</span>
+          ) : (
+            <span>
+              Plotted <strong>{taggedStars.length.toLocaleString()}</strong> stars across{' '}
+              <strong>{selectedTargets.length + (customTarget ? 1 : 0)}</strong> source
+              {selectedTargets.length + (customTarget ? 1 : 0) > 1 ? 's' : ''}
+              {elapsedMs !== null ? ` (${elapsedMs} ms)` : ''}
+            </span>
+          )}
+        </div>
 
         <div className="zoom-controls">
-          <span>Scroll to zoom · Drag to pan · Click star to pin links</span>
+          <span>Scroll to Zoom · Drag to Pan · Click Star to Pin</span>
           <button
             type="button"
             className="zoom-btn"
@@ -672,7 +1151,7 @@ export default function App() {
           </div>
         )}
 
-        {!loading && selectedTargets.length === 0 && (
+        {!loading && selectedTargets.length === 0 && !customTarget && (
           <div className="empty-overlay">
             Select one or more stellar groups above to plot on the H–R diagram
           </div>
@@ -785,7 +1264,13 @@ export default function App() {
                 </svg>
                 <span>ESASky</span>
                 <svg className="ext-arrow" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                  <path d="M3.5 8.5L8.5 3.5M8.5 3.5H4.5M8.5 3.5V7.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                  <path
+                    d="M3.5 8.5L8.5 3.5M8.5 3.5H4.5M8.5 3.5V7.5"
+                    stroke="currentColor"
+                    strokeWidth="1.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
               </a>
               <a
@@ -795,12 +1280,26 @@ export default function App() {
                 className="ext-link"
               >
                 <svg className="ext-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                  <rect x="2.5" y="2.5" width="11" height="11" rx="1.8" stroke="currentColor" strokeWidth="1.4" />
+                  <rect
+                    x="2.5"
+                    y="2.5"
+                    width="11"
+                    height="11"
+                    rx="1.8"
+                    stroke="currentColor"
+                    strokeWidth="1.4"
+                  />
                   <path d="M2.5 6.2h11M6.2 6.2v7.3" stroke="currentColor" strokeWidth="1.2" />
                 </svg>
                 <span>Gaia DR3</span>
                 <svg className="ext-arrow" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                  <path d="M3.5 8.5L8.5 3.5M8.5 3.5H4.5M8.5 3.5V7.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                  <path
+                    d="M3.5 8.5L8.5 3.5M8.5 3.5H4.5M8.5 3.5V7.5"
+                    stroke="currentColor"
+                    strokeWidth="1.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
               </a>
               <a
@@ -811,11 +1310,22 @@ export default function App() {
               >
                 <svg className="ext-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                   <circle cx="8" cy="8" r="4.5" stroke="currentColor" strokeWidth="1.4" />
-                  <path d="M8 1.5v2.2M8 12.3v2.2M1.5 8h2.2M12.3 8h2.2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+                  <path
+                    d="M8 1.5v2.2M8 12.3v2.2M1.5 8h2.2M12.3 8h2.2"
+                    stroke="currentColor"
+                    strokeWidth="1.3"
+                    strokeLinecap="round"
+                  />
                 </svg>
                 <span>SIMBAD</span>
                 <svg className="ext-arrow" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                  <path d="M3.5 8.5L8.5 3.5M8.5 3.5H4.5M8.5 3.5V7.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                  <path
+                    d="M3.5 8.5L8.5 3.5M8.5 3.5H4.5M8.5 3.5V7.5"
+                    stroke="currentColor"
+                    strokeWidth="1.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
               </a>
             </div>
@@ -826,5 +1336,17 @@ export default function App() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <Switch>
+      <Route path="/" component={HomeCatalogView} />
+      <Route path="/chart/:id" component={ChartView} />
+      <Route>
+        <HomeCatalogView />
+      </Route>
+    </Switch>
   );
 }

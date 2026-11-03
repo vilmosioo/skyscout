@@ -1,3 +1,4 @@
+import { bpRpToEffectiveTempK } from '@skyscout/core';
 import type {
   GaiaClient,
   GaiaConeSearchOptions,
@@ -7,21 +8,38 @@ import type {
 
 export type TargetPresetId =
   | 'solar-50pc'
+  | 'ngc-6231'
+  | 'double-cluster'
+  | 'jewel-box'
+  | 'ic-2602'
+  | 'alpha-persei'
+  | 'm47'
+  | 'm6'
   | 'pleiades'
+  | 'm35'
+  | 'm7'
+  | 'm11'
+  | 'm38'
+  | 'wishing-well'
+  | 'm39'
+  | 'm46'
+  | 'm37'
   | 'hyades'
   | 'praesepe'
   | 'm67'
-  | 'm35'
-  | 'm37'
-  | 'm11'
-  | 'alpha-persei'
-  | 'double-cluster'
-  | 'm13'
-  | 'm3'
-  | 'm5'
+  | 'ngc-188'
   | 'm4'
+  | 'ngc-6397'
+  | 'm22'
   | '47-tucanae'
-  | 'omega-centauri';
+  | 'omega-centauri'
+  | 'm13'
+  | 'm5'
+  | 'm3'
+  | 'm10'
+  | 'm12'
+  | 'm15'
+  | 'm92';
 
 export type TargetCategory = 'Solar Volume' | 'Open Cluster' | 'Globular Cluster';
 
@@ -29,6 +47,8 @@ export interface TargetPreset {
   id: TargetPresetId;
   label: string;
   shortName: string;
+  catalogCode?: string;
+  constellation?: string;
   category: TargetCategory;
   subtitle: string;
   age: string;
@@ -43,8 +63,10 @@ export const TARGET_PRESETS: TargetPreset[] = [
     id: 'solar-50pc',
     label: 'Solar Neighborhood (< 50 pc / 163 ly)',
     shortName: 'Solar (<50 pc)',
+    catalogCode: 'Local Bubble',
+    constellation: 'All-Sky',
     category: 'Solar Volume',
-    subtitle: 'Bright stars & local Red Clump giants within 50 pc of the Sun',
+    subtitle: 'Bright stars, Main Sequence spine, White Dwarfs & local Red Clump giants within 50 pc',
     age: '0.1 – 10 Gyr',
     distancePcApprox: 50,
     volume: {
@@ -55,9 +77,31 @@ export const TARGET_PRESETS: TargetPreset[] = [
   },
   // Open Clusters (Young -> Old)
   {
+    id: 'ngc-6231',
+    label: 'Northern Jewel Box (NGC 6231 · Caldwell 76)',
+    shortName: 'NGC 6231',
+    catalogCode: 'NGC 6231',
+    constellation: 'Scorpius',
+    category: 'Open Cluster',
+    subtitle: 'Luminous OB supergiant nursery (~12 Myr) at the heart of Scorpius OB1',
+    age: '~12 Myr',
+    distancePcApprox: 1590,
+    cone: {
+      ra: 253.535,
+      dec: -41.827,
+      radiusDeg: 0.35,
+      minDistancePc: 1300,
+      maxDistancePc: 1950,
+      minParallaxSnr: 4,
+      maxMagG: 16.5,
+    },
+  },
+  {
     id: 'double-cluster',
-    label: 'Double Cluster (NGC 869 / 884)',
+    label: 'Double Cluster (NGC 869 / 884 · h & χ Persei)',
     shortName: 'Double Cluster',
+    catalogCode: 'NGC 869/884',
+    constellation: 'Perseus',
     category: 'Open Cluster',
     subtitle: 'Ultra-young Perseus OB1 supergiant & OB association (~14 Myr)',
     age: '~14 Myr',
@@ -73,11 +117,53 @@ export const TARGET_PRESETS: TargetPreset[] = [
     },
   },
   {
+    id: 'jewel-box',
+    label: 'Jewel Box Cluster (NGC 4755 · κ Crucis)',
+    shortName: 'Jewel Box',
+    catalogCode: 'NGC 4755',
+    constellation: 'Crux',
+    category: 'Open Cluster',
+    subtitle: 'Brilliant blue B-supergiants contrasted with a ruby M-supergiant (~16 Myr)',
+    age: '~16 Myr',
+    distancePcApprox: 1970,
+    cone: {
+      ra: 193.412,
+      dec: -60.362,
+      radiusDeg: 0.28,
+      minDistancePc: 1650,
+      maxDistancePc: 2350,
+      minParallaxSnr: 4,
+      maxMagG: 16.5,
+    },
+  },
+  {
+    id: 'ic-2602',
+    label: 'Southern Pleiades (IC 2602 · θ Carinae)',
+    shortName: 'IC 2602',
+    catalogCode: 'IC 2602',
+    constellation: 'Carina',
+    category: 'Open Cluster',
+    subtitle: 'Nearby young southern cluster (~35 Myr) spanning Carina',
+    age: '~35 Myr',
+    distancePcApprox: 152,
+    cone: {
+      ra: 160.739,
+      dec: -64.401,
+      radiusDeg: 1.5,
+      minDistancePc: 135,
+      maxDistancePc: 170,
+      minParallaxSnr: 10,
+      maxMagG: 16.5,
+    },
+  },
+  {
     id: 'alpha-persei',
     label: 'Alpha Persei Cluster (Melotte 20)',
     shortName: 'α Persei',
+    catalogCode: 'Mel 20',
+    constellation: 'Perseus',
     category: 'Open Cluster',
-    subtitle: 'Young moving group (~50 Myr) anchored by supergiant Mirfak',
+    subtitle: 'Young moving group (~50 Myr) anchored by yellow supergiant Mirfak',
     age: '~50 Myr',
     distancePcApprox: 175,
     cone: {
@@ -91,9 +177,51 @@ export const TARGET_PRESETS: TargetPreset[] = [
     },
   },
   {
+    id: 'm47',
+    label: 'Messier 47 (NGC 2422)',
+    shortName: 'M47',
+    catalogCode: 'M47',
+    constellation: 'Puppis',
+    category: 'Open Cluster',
+    subtitle: 'Bright Puppis open cluster (~78 Myr) dominated by hot B and A main-sequence stars',
+    age: '~78 Myr',
+    distancePcApprox: 490,
+    cone: {
+      ra: 114.146,
+      dec: -14.483,
+      radiusDeg: 0.55,
+      minDistancePc: 430,
+      maxDistancePc: 550,
+      minParallaxSnr: 6,
+      maxMagG: 16.5,
+    },
+  },
+  {
+    id: 'm6',
+    label: 'Butterfly Cluster (Messier 6 · NGC 6405)',
+    shortName: 'M6 Butterfly',
+    catalogCode: 'M6',
+    constellation: 'Scorpius',
+    category: 'Open Cluster',
+    subtitle: 'Scorpius open cluster (~95 Myr) featuring orange K-giant BM Scorpii',
+    age: '~95 Myr',
+    distancePcApprox: 460,
+    cone: {
+      ra: 265.083,
+      dec: -32.253,
+      radiusDeg: 0.45,
+      minDistancePc: 410,
+      maxDistancePc: 520,
+      minParallaxSnr: 6,
+      maxMagG: 16.5,
+    },
+  },
+  {
     id: 'pleiades',
     label: 'Pleiades (M45 · Seven Sisters)',
     shortName: 'M45 Pleiades',
+    catalogCode: 'M45',
+    constellation: 'Taurus',
     category: 'Open Cluster',
     subtitle: 'Young Open Cluster (~115 Myr) with luminous blue B-type stars',
     age: '~115 Myr',
@@ -112,6 +240,8 @@ export const TARGET_PRESETS: TargetPreset[] = [
     id: 'm35',
     label: 'Messier 35 (NGC 2168)',
     shortName: 'M35',
+    catalogCode: 'M35',
+    constellation: 'Gemini',
     category: 'Open Cluster',
     subtitle: 'Rich Gemini open cluster (~150 Myr) with evolved blue-yellow giants',
     age: '~150 Myr',
@@ -127,9 +257,31 @@ export const TARGET_PRESETS: TargetPreset[] = [
     },
   },
   {
+    id: 'm7',
+    label: 'Ptolemy Cluster (Messier 7 · NGC 6475)',
+    shortName: 'M7 Ptolemy',
+    catalogCode: 'M7',
+    constellation: 'Scorpius',
+    category: 'Open Cluster',
+    subtitle: 'Naked-eye Scorpius cluster (~200 Myr) known since antiquity',
+    age: '~200 Myr',
+    distancePcApprox: 280,
+    cone: {
+      ra: 268.463,
+      dec: -34.793,
+      radiusDeg: 0.85,
+      minDistancePc: 245,
+      maxDistancePc: 315,
+      minParallaxSnr: 8,
+      maxMagG: 16.5,
+    },
+  },
+  {
     id: 'm11',
     label: 'Wild Duck Cluster (M11 · NGC 6705)',
     shortName: 'M11 Wild Duck',
+    catalogCode: 'M11',
+    constellation: 'Scutum',
     category: 'Open Cluster',
     subtitle: 'One of the richest, most compact open clusters (~250 Myr)',
     age: '~250 Myr',
@@ -145,9 +297,91 @@ export const TARGET_PRESETS: TargetPreset[] = [
     },
   },
   {
+    id: 'm38',
+    label: 'Starfish Cluster (Messier 38 · NGC 1912)',
+    shortName: 'M38 Starfish',
+    catalogCode: 'M38',
+    constellation: 'Auriga',
+    category: 'Open Cluster',
+    subtitle: 'Intermediate-age Auriga cluster (~290 Myr) with yellow G-type giants',
+    age: '~290 Myr',
+    distancePcApprox: 1060,
+    cone: {
+      ra: 82.167,
+      dec: 35.855,
+      radiusDeg: 0.4,
+      minDistancePc: 920,
+      maxDistancePc: 1250,
+      minParallaxSnr: 5,
+      maxMagG: 17.0,
+    },
+  },
+  {
+    id: 'wishing-well',
+    label: 'Wishing Well Cluster (NGC 3532 · Caldwell 91)',
+    shortName: 'Wishing Well',
+    catalogCode: 'NGC 3532',
+    constellation: 'Carina',
+    category: 'Open Cluster',
+    subtitle: 'Spectacular Carina open cluster (~300 Myr) — first target imaged by Hubble',
+    age: '~300 Myr',
+    distancePcApprox: 485,
+    cone: {
+      ra: 166.449,
+      dec: -58.753,
+      radiusDeg: 0.55,
+      minDistancePc: 430,
+      maxDistancePc: 540,
+      minParallaxSnr: 7,
+      maxMagG: 16.5,
+    },
+  },
+  {
+    id: 'm39',
+    label: 'Messier 39 (NGC 7092)',
+    shortName: 'M39',
+    catalogCode: 'M39',
+    constellation: 'Cygnus',
+    category: 'Open Cluster',
+    subtitle: 'Loose, bright Cygnus cluster (~300 Myr) with crisp main-sequence turnoff',
+    age: '~300 Myr',
+    distancePcApprox: 300,
+    cone: {
+      ra: 322.958,
+      dec: 48.433,
+      radiusDeg: 0.75,
+      minDistancePc: 265,
+      maxDistancePc: 335,
+      minParallaxSnr: 8,
+      maxMagG: 16.5,
+    },
+  },
+  {
+    id: 'm46',
+    label: 'Messier 46 (NGC 2437)',
+    shortName: 'M46',
+    catalogCode: 'M46',
+    constellation: 'Puppis',
+    category: 'Open Cluster',
+    subtitle: 'Rich Puppis cluster (~300 Myr) containing planetary nebula NGC 2438 in line of sight',
+    age: '~300 Myr',
+    distancePcApprox: 1510,
+    cone: {
+      ra: 115.442,
+      dec: -14.81,
+      radiusDeg: 0.35,
+      minDistancePc: 1320,
+      maxDistancePc: 1750,
+      minParallaxSnr: 4,
+      maxMagG: 17.0,
+    },
+  },
+  {
     id: 'm37',
     label: 'Messier 37 (NGC 2099)',
     shortName: 'M37',
+    catalogCode: 'M37',
+    constellation: 'Auriga',
     category: 'Open Cluster',
     subtitle: 'Richest Auriga open cluster (~500 Myr) with over a dozen red giants',
     age: '~500 Myr',
@@ -166,6 +400,8 @@ export const TARGET_PRESETS: TargetPreset[] = [
     id: 'hyades',
     label: 'Hyades Cluster (Melotte 25)',
     shortName: 'Hyades',
+    catalogCode: 'Mel 25',
+    constellation: 'Taurus',
     category: 'Open Cluster',
     subtitle: 'Nearest open cluster (~47 pc, ~625 Myr) with A-star turnoff & red clump',
     age: '~625 Myr',
@@ -184,6 +420,8 @@ export const TARGET_PRESETS: TargetPreset[] = [
     id: 'praesepe',
     label: 'Beehive Cluster (M44 · Praesepe)',
     shortName: 'M44 Beehive',
+    catalogCode: 'M44',
+    constellation: 'Cancer',
     category: 'Open Cluster',
     subtitle: 'Intermediate cluster (~650 Myr) with prominent binary star sequence',
     age: '~650 Myr',
@@ -202,6 +440,8 @@ export const TARGET_PRESETS: TargetPreset[] = [
     id: 'm67',
     label: 'Messier 67 (M67 · King Cobra)',
     shortName: 'M67',
+    catalogCode: 'M67',
+    constellation: 'Cancer',
     category: 'Open Cluster',
     subtitle: 'Solar-age open cluster (~4 Gyr) with textbook Red Giant Branch turnoff',
     age: '~4.0 Gyr',
@@ -216,11 +456,33 @@ export const TARGET_PRESETS: TargetPreset[] = [
       maxMagG: 17.5,
     },
   },
+  {
+    id: 'ngc-188',
+    label: 'NGC 188 (Caldwell 1 · Ancient Polar Cluster)',
+    shortName: 'NGC 188',
+    catalogCode: 'NGC 188',
+    constellation: 'Cepheus',
+    category: 'Open Cluster',
+    subtitle: 'One of the oldest open clusters in the Milky Way (~6.8 Gyr) near Polaris',
+    age: '~6.8 Gyr',
+    distancePcApprox: 1850,
+    cone: {
+      ra: 11.798,
+      dec: 85.244,
+      radiusDeg: 0.45,
+      minDistancePc: 1550,
+      maxDistancePc: 2200,
+      minParallaxSnr: 4,
+      maxMagG: 17.8,
+    },
+  },
   // Globular Clusters (Ancient Halo / ~11–13 Gyr)
   {
     id: 'm4',
     label: 'Messier 4 (M4 · NGC 6121)',
     shortName: 'M4',
+    catalogCode: 'M4',
+    constellation: 'Scorpius',
     category: 'Globular Cluster',
     subtitle: 'Nearest globular cluster to Earth (~1.85 kpc, ~12.2 Gyr) in Scorpius',
     age: '~12.2 Gyr',
@@ -236,9 +498,51 @@ export const TARGET_PRESETS: TargetPreset[] = [
     },
   },
   {
+    id: 'ngc-6397',
+    label: 'NGC 6397 (Caldwell 86 · Core-Collapsed Globular)',
+    shortName: 'NGC 6397',
+    catalogCode: 'NGC 6397',
+    constellation: 'Ara',
+    category: 'Globular Cluster',
+    subtitle: 'Metal-poor southern globular cluster (~2.4 kpc, ~12.6 Gyr) with tight main sequence',
+    age: '~12.6 Gyr',
+    distancePcApprox: 2400,
+    cone: {
+      ra: 265.175,
+      dec: -53.674,
+      radiusDeg: 0.38,
+      minDistancePc: 1900,
+      maxDistancePc: 3100,
+      minParallaxSnr: 3,
+      maxMagG: 17.2,
+    },
+  },
+  {
+    id: 'm22',
+    label: 'Great Sagittarius Cluster (Messier 22 · NGC 6656)',
+    shortName: 'M22 Sagittarius',
+    catalogCode: 'M22',
+    constellation: 'Sagittarius',
+    category: 'Globular Cluster',
+    subtitle: 'Bright elliptical globular cluster (~3.2 kpc, ~12.0 Gyr) near the Galactic Bulge',
+    age: '~12.0 Gyr',
+    distancePcApprox: 3200,
+    cone: {
+      ra: 279.1,
+      dec: -23.905,
+      radiusDeg: 0.35,
+      minDistancePc: 2400,
+      maxDistancePc: 4300,
+      minParallaxSnr: 3,
+      maxMagG: 17.0,
+    },
+  },
+  {
     id: '47-tucanae',
     label: '47 Tucanae (NGC 104)',
     shortName: '47 Tuc',
+    catalogCode: 'NGC 104',
+    constellation: 'Tucana',
     category: 'Globular Cluster',
     subtitle: 'Massive southern globular cluster (~4.5 kpc, ~11.8 Gyr) with steep RGB',
     age: '~11.8 Gyr',
@@ -257,6 +561,8 @@ export const TARGET_PRESETS: TargetPreset[] = [
     id: 'omega-centauri',
     label: 'Omega Centauri (NGC 5139)',
     shortName: 'ω Centauri',
+    catalogCode: 'NGC 5139',
+    constellation: 'Centaurus',
     category: 'Globular Cluster',
     subtitle: 'Largest Milky Way globular cluster (~5.2 kpc, ~11.5 Gyr) & Horizontal Branch',
     age: '~11.5 Gyr',
@@ -272,9 +578,51 @@ export const TARGET_PRESETS: TargetPreset[] = [
     },
   },
   {
+    id: 'm10',
+    label: 'Messier 10 (NGC 6254)',
+    shortName: 'M10',
+    catalogCode: 'M10',
+    constellation: 'Ophiuchus',
+    category: 'Globular Cluster',
+    subtitle: 'Rich Ophiuchus globular cluster (~4.4 kpc, ~11.4 Gyr) with blue horizontal branch',
+    age: '~11.4 Gyr',
+    distancePcApprox: 4400,
+    cone: {
+      ra: 254.288,
+      dec: -4.1,
+      radiusDeg: 0.3,
+      minDistancePc: 3200,
+      maxDistancePc: 6500,
+      minParallaxSnr: 2.5,
+      maxMagG: 17.2,
+    },
+  },
+  {
+    id: 'm12',
+    label: 'Gumball Globular (Messier 12 · NGC 6218)',
+    shortName: 'M12 Gumball',
+    catalogCode: 'M12',
+    constellation: 'Ophiuchus',
+    category: 'Globular Cluster',
+    subtitle: 'Loosely concentrated Ophiuchus globular cluster (~5.1 kpc, ~12.6 Gyr)',
+    age: '~12.6 Gyr',
+    distancePcApprox: 5100,
+    cone: {
+      ra: 251.809,
+      dec: -1.949,
+      radiusDeg: 0.3,
+      minDistancePc: 3600,
+      maxDistancePc: 7500,
+      minParallaxSnr: 2.5,
+      maxMagG: 17.2,
+    },
+  },
+  {
     id: 'm13',
     label: 'Great Hercules Cluster (M13 · NGC 6205)',
     shortName: 'M13 Hercules',
+    catalogCode: 'M13',
+    constellation: 'Hercules',
     category: 'Globular Cluster',
     subtitle: 'Showpiece northern globular cluster (~7.1 kpc, ~11.6 Gyr) with Blue HB',
     age: '~11.6 Gyr',
@@ -293,6 +641,8 @@ export const TARGET_PRESETS: TargetPreset[] = [
     id: 'm5',
     label: 'Messier 5 (M5 · NGC 5904)',
     shortName: 'M5',
+    catalogCode: 'M5',
+    constellation: 'Serpens',
     category: 'Globular Cluster',
     subtitle: 'Ancient Serpens globular cluster (~7.5 kpc, ~12.5 Gyr) rich in RR Lyrae stars',
     age: '~12.5 Gyr',
@@ -308,9 +658,31 @@ export const TARGET_PRESETS: TargetPreset[] = [
     },
   },
   {
+    id: 'm92',
+    label: 'Messier 92 (NGC 6341)',
+    shortName: 'M92',
+    catalogCode: 'M92',
+    constellation: 'Hercules',
+    category: 'Globular Cluster',
+    subtitle: 'One of the oldest, most metal-poor globular clusters in the Milky Way (~13.0 Gyr)',
+    age: '~13.0 Gyr',
+    distancePcApprox: 8300,
+    cone: {
+      ra: 259.281,
+      dec: 43.136,
+      radiusDeg: 0.28,
+      minDistancePc: 5200,
+      maxDistancePc: 13500,
+      minParallaxSnr: 2.2,
+      maxMagG: 17.4,
+    },
+  },
+  {
     id: 'm3',
     label: 'Messier 3 (M3 · NGC 5272)',
     shortName: 'M3',
+    catalogCode: 'M3',
+    constellation: 'Canes Venatici',
     category: 'Globular Cluster',
     subtitle: 'Archetypal halo globular cluster (~10.2 kpc, ~11.4 Gyr) in Canes Venatici',
     age: '~11.4 Gyr',
@@ -321,6 +693,26 @@ export const TARGET_PRESETS: TargetPreset[] = [
       radiusDeg: 0.3,
       minDistancePc: 6000,
       maxDistancePc: 16000,
+      minParallaxSnr: 2,
+      maxMagG: 17.5,
+    },
+  },
+  {
+    id: 'm15',
+    label: 'Great Pegasus Cluster (Messier 15 · NGC 7078)',
+    shortName: 'M15 Pegasus',
+    catalogCode: 'M15',
+    constellation: 'Pegasus',
+    category: 'Globular Cluster',
+    subtitle: 'Dense core-collapsed Pegasus globular cluster (~10.4 kpc, ~12.5 Gyr)',
+    age: '~12.5 Gyr',
+    distancePcApprox: 10400,
+    cone: {
+      ra: 322.493,
+      dec: 12.167,
+      radiusDeg: 0.28,
+      minDistancePc: 6200,
+      maxDistancePc: 16500,
       minParallaxSnr: 2,
       maxMagG: 17.5,
     },
@@ -843,3 +1235,233 @@ export function getStarPhysicalDetails(star: GaiaStar): {
     radiusSolar,
   };
 }
+
+export const RADIUS_LINES_SOLAR = [0.01, 0.1, 1, 10, 100, 1000] as const;
+
+/**
+ * Computes a curve of `(bpRp, absoluteMagG)` points along a line of constant stellar radius (`radiusSolar` in R☉)
+ * using `@skyscout/core`'s `bpRpToEffectiveTempK` and the Stefan–Boltzmann relation:
+ * $L / L_\odot = (R / R_\odot)^2 \times (T_{\text{eff}} / 5772\,\text{K})^4$, $M_G = 4.67 - 2.5 \log_{10}(L / L_\odot)$.
+ */
+export function computeConstantRadiusCurve(
+  radiusSolar: number,
+  steps: number = 42
+): Array<{ bpRp: number; absoluteMagG: number }> {
+  if (radiusSolar <= 0 || steps < 2) return [];
+  const points: Array<{ bpRp: number; absoluteMagG: number }> = [];
+  const minBpRp = -0.45;
+  const maxBpRp = 3.3;
+
+  for (let i = 0; i < steps; i++) {
+    const bpRp = minBpRp + (i / (steps - 1)) * (maxBpRp - minBpRp);
+    const teff = bpRpToEffectiveTempK(bpRp) ?? 5772;
+    const lumSolar = Math.pow(radiusSolar, 2) * Math.pow(teff / 5772, 4);
+    const absoluteMagG = 4.67 - 2.5 * Math.log10(lumSolar);
+    points.push({ bpRp, absoluteMagG });
+  }
+  return points;
+}
+
+/**
+ * Filters `TARGET_PRESETS` by category (`All` or specific category) and case-insensitive search query
+ * matching `label`, `shortName`, `catalogCode`, `constellation`, or `subtitle`.
+ */
+export function searchCatalogPresets(
+  query: string,
+  category: TargetCategory | 'All' = 'All'
+): TargetPreset[] {
+  const q = query.trim().toLowerCase();
+  return TARGET_PRESETS.filter((p) => {
+    if (category !== 'All' && p.category !== category) return false;
+    if (!q) return true;
+    return (
+      p.label.toLowerCase().includes(q) ||
+      p.shortName.toLowerCase().includes(q) ||
+      (p.catalogCode?.toLowerCase().includes(q) ?? false) ||
+      (p.constellation?.toLowerCase().includes(q) ?? false) ||
+      p.subtitle.toLowerCase().includes(q) ||
+      p.id.toLowerCase().includes(q)
+    );
+  });
+}
+
+/**
+ * Custom user-defined sky cone search target (`/chart/custom?...`).
+ */
+export interface CustomConeTarget {
+  name: string;
+  ra: number;
+  dec: number;
+  radiusDeg: number;
+  minDistancePc?: number;
+  maxDistancePc?: number;
+}
+
+/**
+ * Fetches live Gaia DR3 stars for a custom sky cone search, with in-memory + `localStorage` caching
+ * and in-flight request deduplication.
+ */
+export async function fetchCustomConeStars(
+  client: GaiaClient,
+  target: CustomConeTarget,
+  limit: number = 1000,
+  storage?: Pick<Storage, 'getItem' | 'setItem'> & Partial<Pick<Storage, 'removeItem'>>
+): Promise<GaiaStar[]> {
+  const slug = `custom:${target.ra.toFixed(3)}:${target.dec.toFixed(3)}:${target.radiusDeg.toFixed(2)}:${target.minDistancePc ?? 0}:${target.maxDistancePc ?? 0}:${limit}`;
+  const key = `${CACHE_KEY_PREFIX}${slug}`;
+
+  if (memoryCache.has(key)) {
+    return memoryCache.get(key)!;
+  }
+
+  const store = storage ?? (typeof globalThis !== 'undefined' ? globalThis.localStorage : undefined);
+  if (store) {
+    try {
+      const raw = store.getItem(key);
+      if (raw) {
+        const parsed = JSON.parse(raw) as GaiaStar[];
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          memoryCache.set(key, parsed);
+          return parsed;
+        }
+      }
+    } catch {
+      // Ignore storage read errors
+    }
+  }
+
+  const existing = inFlightRequests.get(key);
+  if (existing) return existing;
+
+  const promise = (async (): Promise<GaiaStar[]> => {
+    try {
+      const stars = await client.coneSearch({
+        ra: target.ra,
+        dec: target.dec,
+        radiusDeg: target.radiusDeg,
+        minDistancePc: target.minDistancePc,
+        maxDistancePc: target.maxDistancePc,
+        minParallaxSnr: 3,
+        maxMagG: 17.2,
+        limit,
+      });
+      if (stars.length > 0) {
+        memoryCache.set(key, stars);
+        if (store) {
+          try {
+            store.setItem(key, JSON.stringify(stars));
+          } catch {
+            // Ignore quota errors
+          }
+        }
+      }
+      return stars;
+    } finally {
+      inFlightRequests.delete(key);
+    }
+  })();
+
+  inFlightRequests.set(key, promise);
+  return promise;
+}
+
+/**
+ * Generates deterministic, astrophysically shaped H–R preview points `(bpRp, absoluteMagG)`
+ * for a cluster card on the `/` Home Page Grid when the cluster has not yet been fetched into `localStorage`.
+ * Ensures all 32 cards on the Home Page Grid render an immediate H–R thumbnail with zero network calls.
+ */
+export function generateClusterPreviewPoints(
+  preset: TargetPreset
+): Array<{ bpRp: number; absoluteMagG: number }> {
+  // Deterministic PRNG seeded by preset.id
+  let seed = 2166136261;
+  for (let i = 0; i < preset.id.length; i++) {
+    seed ^= preset.id.charCodeAt(i);
+    seed = Math.imul(seed, 16777619);
+  }
+  const rand = (): number => {
+    seed ^= seed << 13;
+    seed ^= seed >>> 17;
+    seed ^= seed << 5;
+    return ((seed >>> 0) % 10000) / 10000;
+  };
+
+  const points: Array<{ bpRp: number; absoluteMagG: number }> = [];
+
+  if (preset.category === 'Globular Cluster') {
+    // Turnoff around bpRp ~ 0.65, M_G ~ 3.8 + Steep Red Giant Branch + Blue/Red Horizontal Branch
+    for (let i = 0; i < 95; i++) {
+      // Lower main sequence + turnoff
+      const t = rand();
+      const bpRp = 0.62 + t * 1.1 + (rand() - 0.5) * 0.12;
+      const absMag = 3.8 + t * 5.8 + (rand() - 0.5) * 0.5;
+      points.push({ bpRp, absoluteMagG: absMag });
+    }
+    for (let i = 0; i < 85; i++) {
+      // Steep Red Giant Branch (from subgiant turnoff up to M_G ~ -2.8)
+      const t = Math.pow(rand(), 0.85);
+      const bpRp = 0.82 + t * 1.05 + (rand() - 0.5) * 0.1;
+      const absMag = 3.4 - t * 6.0 + (rand() - 0.5) * 0.45;
+      points.push({ bpRp, absoluteMagG: absMag });
+    }
+    for (let i = 0; i < 40; i++) {
+      // Horizontal Branch (M_G ~ +0.5, spanning blue to yellow)
+      const bpRp = -0.1 + rand() * 0.95;
+      const absMag = 0.55 + (rand() - 0.5) * 0.45 + (bpRp < 0.15 ? (0.15 - bpRp) * 2.2 : 0);
+      points.push({ bpRp, absoluteMagG: absMag });
+    }
+    return points;
+  }
+
+  if (preset.category === 'Solar Volume') {
+    // Full Main Sequence (-0.1 to +3.1) + Red Clump + White Dwarfs
+    for (let i = 0; i < 165; i++) {
+      const t = Math.pow(rand(), 0.9);
+      const bpRp = -0.05 + t * 3.15 + (rand() - 0.5) * 0.14;
+      const absMag = 0.6 + t * 12.2 + (rand() - 0.5) * 0.55;
+      points.push({ bpRp, absoluteMagG: absMag });
+    }
+    for (let i = 0; i < 30; i++) {
+      // Red Clump / Giants
+      points.push({
+        bpRp: 1.05 + (rand() - 0.5) * 0.35,
+        absoluteMagG: 0.6 + (rand() - 0.5) * 1.4,
+      });
+    }
+    for (let i = 0; i < 20; i++) {
+      // White Dwarf cooling sequence
+      const t = rand();
+      points.push({
+        bpRp: -0.15 + t * 0.95,
+        absoluteMagG: 10.5 + t * 3.8 + (rand() - 0.5) * 0.4,
+      });
+    }
+    return points;
+  }
+
+  // Open Cluster: determine turnoff color from age string
+  const isUltraYoung = preset.age.includes('12 ') || preset.age.includes('14 ') || preset.age.includes('16 ') || preset.age.includes('35 ') || preset.age.includes('50 ');
+  const isAncientOpen = preset.age.includes('Gyr');
+  const minBpRp = isUltraYoung ? -0.32 : isAncientOpen ? 0.58 : -0.08;
+  const minMag = isUltraYoung ? -4.2 : isAncientOpen ? 3.2 : 0.2;
+
+  for (let i = 0; i < 175; i++) {
+    const t = Math.pow(rand(), 0.85);
+    const bpRp = minBpRp + t * (2.65 - minBpRp) + (rand() - 0.5) * 0.1;
+    const absMag = minMag + t * (11.8 - minMag) + (rand() - 0.5) * 0.45;
+    points.push({ bpRp, absoluteMagG: absMag });
+  }
+
+  // Evolved giants / supergiants appropriate for cluster age
+  const giantCount = isAncientOpen ? 38 : isUltraYoung ? 14 : 16;
+  for (let i = 0; i < giantCount; i++) {
+    const t = rand();
+    points.push({
+      bpRp: isAncientOpen ? 0.95 + t * 0.7 : 1.05 + (rand() - 0.5) * 0.45,
+      absoluteMagG: isAncientOpen ? 3.0 - t * 4.2 : isUltraYoung ? -3.5 + (rand() - 0.5) * 2.0 : 0.4 + (rand() - 0.5) * 1.2,
+    });
+  }
+
+  return points;
+}
+
