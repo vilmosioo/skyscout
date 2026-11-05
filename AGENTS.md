@@ -24,3 +24,6 @@ Guidelines and constraints for AI coding assistants working in the SkyScout repo
 - **Practicality First**: Focus on features, data visualization, and astronomy workflows. Avoid over-engineering, unnecessary abstractions, or hyper-fixating on micro-optimizations.
 - **Conciseness**: Keep explanations direct and avoid unnecessary fluff.
 - **Clickable Links**: Reference files and code symbols using GitHub-style markdown links (`file:///...`).
+
+## 5. Changesets & Changelogs
+- **Always write changelog**: For all features, fixes, or user-facing changes, always write a changeset entry in `.changeset/<feature-name>.md` specifying the affected package(s) and change level (`major`, `minor`, `patch`).

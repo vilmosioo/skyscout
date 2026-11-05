@@ -12,6 +12,7 @@ import {
   fetchCustomConeStars,
   fetchTargetStars,
   findClosestStarAtPoint,
+  generateClusterFallbackStars,
   generateClusterPreviewPoints,
   getCachedTargetStars,
   getGaiaStarExternalUrls,
@@ -21,6 +22,7 @@ import {
   panHrBounds,
   type PlotBox,
   RADIUS_LINES_SOLAR,
+  renderGalleryPosterCanvas,
   searchCatalogPresets,
   starToCanvasXY,
   TARGET_PRESETS,
@@ -663,7 +665,15 @@ function ChartView() {
   const [taggedStars, setTaggedStars] = useState<TaggedStar[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [fallbackNotice, setFallbackNotice] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState<number>(0);
   const [elapsedMs, setElapsedMs] = useState<number | null>(null);
+
+  const handleRetry = useCallback(() => {
+    setError(null);
+    setFallbackNotice(null);
+    setRetryKey((k) => k + 1);
+  }, []);
 
   // Sync selectedTargets when navigating to a new `/chart/:id` route
   useEffect(() => {
@@ -711,19 +721,38 @@ function ChartView() {
     setError(null);
     const t0 = performance.now();
 
-    const tasks: Array<Promise<{ sourceLabel: string; list: GaiaStar[] }>> = selectedTargets.map(
-      async (id) => {
-        const preset = TARGET_PRESETS.find((p) => p.id === id);
+    const tasks: Array<
+      Promise<{
+        sourceLabel: string;
+        list: GaiaStar[];
+        isFallback?: boolean;
+        error?: string;
+      }>
+    > = selectedTargets.map(async (id) => {
+      const preset = TARGET_PRESETS.find((p) => p.id === id);
+      try {
         const list = await fetchTargetStars(client, id, 1000);
-        return { sourceLabel: preset?.shortName ?? id, list };
+        return { sourceLabel: preset?.shortName ?? id, list, isFallback: false };
+      } catch (err) {
+        if (preset) {
+          const fallbackList = generateClusterFallbackStars(preset);
+          return {
+            sourceLabel: preset.shortName,
+            list: fallbackList,
+            isFallback: true,
+            error: (err as Error).message,
+          };
+        }
+        throw err;
       }
-    );
+    });
 
     if (customTarget) {
       tasks.unshift(
         fetchCustomConeStars(client, customTarget, 1000).then((list) => ({
           sourceLabel: customTarget.name,
           list,
+          isFallback: false,
         }))
       );
     }
@@ -732,17 +761,42 @@ function ChartView() {
       .then((results) => {
         if (cancelled) return;
         const uniqueMap = new Map<string, TaggedStar>();
-        for (const { sourceLabel, list } of results) {
+        const fallbackSources: string[] = [];
+        let sampleError: string | null = null;
+
+        for (const { sourceLabel, list, isFallback, error: errStr } of results) {
+          if (isFallback) {
+            fallbackSources.push(sourceLabel);
+            if (errStr && !sampleError) sampleError = errStr;
+          }
           for (const star of list) {
             uniqueMap.set(star.sourceId, { star, sourceLabel });
           }
         }
         setTaggedStars(Array.from(uniqueMap.values()));
         setElapsedMs(Math.round(performance.now() - t0));
+
+        if (fallbackSources.length > 0) {
+          const isOverloaded = sampleError?.includes('overloaded') || sampleError?.includes('503');
+          const noticeHeader = isOverloaded
+            ? 'ESA Gaia TAP server is temporarily overloaded (503)'
+            : 'ESA Gaia TAP network service temporarily unreachable';
+          setFallbackNotice(
+            `${noticeHeader}. Displaying high-precision offline reference stars for ${fallbackSources.join(', ')} so you can continue exploring and generating fine-art posters.`
+          );
+        } else {
+          setFallbackNotice(null);
+        }
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        setError((err as Error).message || 'Failed to query ESA Gaia TAP.');
+        const rawMsg = (err as Error).message || 'Failed to query ESA Gaia TAP.';
+        const cleanMsg = rawMsg
+          .replace(/<style[\s\S]*?<\/style>/gi, '')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+        setError(cleanMsg);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -751,7 +805,7 @@ function ChartView() {
     return () => {
       cancelled = true;
     };
-  }, [client, customTarget, selectedTargets]);
+  }, [client, customTarget, retryKey, selectedTargets]);
 
   const activeStarSelection = pinned ?? hovered;
 
@@ -925,47 +979,74 @@ function ChartView() {
     }
   };
 
-  // Export High-Resolution Print Poster (3600 x 2400 px PNG)
+  const [exportingPoster, setExportingPoster] = useState(false);
+
+  // Export 18" × 24" at 300 DPI Gallery Poster (5400 × 7200 px PNG) for Etsy / fine-art printing
   const handleExportPoster = useCallback(() => {
-    const width = 3000;
-    const height = 2100;
-    const offscreen = document.createElement('canvas');
-    offscreen.width = width;
-    offscreen.height = height;
-    const ctx = offscreen.getContext('2d');
-    if (!ctx) return;
+    if (exportingPoster) return;
+    setExportingPoster(true);
 
-    const posterBox: PlotBox = {
-      left: 180,
-      top: 290,
-      width: width - 320,
-      height: height - 440,
-    };
+    // Timeout allows the UI button to show the loading state immediately
+    setTimeout(() => {
+      try {
+        const width = 5400; // 18" at 300 DPI
+        const height = 7200; // 24" at 300 DPI
+        const offscreen = document.createElement('canvas');
+        offscreen.width = width;
+        offscreen.height = height;
+        const ctx = offscreen.getContext('2d');
+        if (!ctx) {
+          setExportingPoster(false);
+          return;
+        }
 
-    renderHrDiagramCanvas({
-      ctx,
-      width,
-      height,
-      box: posterBox,
-      bounds,
-      schemeId,
-      stars: taggedStars,
-      showRadiusLines,
-      posterHeader: {
-        title: 'HERTZSPRUNG–RUSSELL DIAGRAM',
-        subtitle: activeTitle,
-      },
-    });
+        renderGalleryPosterCanvas({
+          ctx,
+          width,
+          height,
+          bounds,
+          schemeId,
+          stars: taggedStars,
+          showRadiusLines,
+          primaryPreset: activePresets[0] ?? null,
+          customTarget,
+          additionalPresets: activePresets.slice(1),
+        });
 
-    const dataUrl = offscreen.toDataURL('image/png');
-    const link = document.createElement('a');
-    link.href = dataUrl;
-    const slug = selectedTargets.slice(0, 3).join('-') || 'custom';
-    link.download = `starplot-hr-poster-${slug}-${schemeId}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  }, [activeTitle, bounds, schemeId, selectedTargets, showRadiusLines, taggedStars]);
+        offscreen.toBlob((blob) => {
+          if (!blob) {
+            setExportingPoster(false);
+            return;
+          }
+          const dataUrl = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = dataUrl;
+          const slug =
+            selectedTargets.slice(0, 3).join('-') ||
+            customTarget?.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') ||
+            'custom';
+          link.download = `starplot-18x24-poster-${slug}-${schemeId}.png`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          setTimeout(() => URL.revokeObjectURL(dataUrl), 10000);
+          setExportingPoster(false);
+        }, 'image/png');
+      } catch (err) {
+        console.error('Failed to export gallery poster:', err);
+        setExportingPoster(false);
+      }
+    }, 40);
+  }, [
+    activePresets,
+    bounds,
+    customTarget,
+    exportingPoster,
+    schemeId,
+    selectedTargets,
+    showRadiusLines,
+    taggedStars,
+  ]);
 
   const categories: TargetCategory[] = ['Solar Volume', 'Open Cluster', 'Globular Cluster'];
 
@@ -1021,10 +1102,11 @@ function ChartView() {
           <button
             type="button"
             onClick={handleExportPoster}
+            disabled={exportingPoster || taggedStars.length === 0}
             className="action-btn primary"
-            title="Export a 3000×2100 high-resolution poster PNG for printing"
+            title="Export 18×24 inch museum fine-art poster at 300 DPI (5400×7200 px) for Etsy printing"
           >
-            🖼️ Export Print Poster (PNG)
+            {exportingPoster ? '⏳ Rendering 18×24" Poster...' : '🖼️ Export 18×24" Poster (300 DPI)'}
           </button>
         </div>
       </header>
@@ -1129,7 +1211,37 @@ function ChartView() {
         </div>
       </div>
 
-      {error && <div className="error-banner">⚠️ {error}</div>}
+      {fallbackNotice && (
+        <div className="warning-banner">
+          <div className="warning-content">
+            <span>⚠️ <strong>ESA Gaia Service Notice:</strong> {fallbackNotice}</span>
+          </div>
+          <button
+            type="button"
+            className="banner-action-btn"
+            onClick={handleRetry}
+            title="Retry live query to ESA Gaia TAP server"
+          >
+            🔄 Retry Live Query
+          </button>
+        </div>
+      )}
+
+      {error && (
+        <div className="error-banner">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', width: '100%' }}>
+            <span>⚠️ {error}</span>
+            <button
+              type="button"
+              className="banner-action-btn"
+              onClick={handleRetry}
+              title="Retry query"
+            >
+              🔄 Retry
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="plot-card">
         <canvas

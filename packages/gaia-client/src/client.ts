@@ -57,6 +57,57 @@ export function parseLosslessGaiaJson<T>(rawText: string): T {
  * Converts a raw ESA Gaia TAP tabular JSON response (`{ metadata, data }`) into an array
  * of keyed row objects, mapping each column name to its value.
  */
+/**
+ * Safely extracts a clean, human-readable error description from a raw TAP response,
+ * stripping HTML tags, styles, and server debug boilerplate.
+ */
+export function extractTapErrorMessage(rawText: string, status: number): string {
+  if (!rawText || !rawText.trim()) {
+    return `Gaia TAP request failed with status ${status}`;
+  }
+
+  // 1. Look for ESA TAP HTML error formatting: <li><b>Message: </b>...</li>
+  const messageMatch = /<b>Message:\s*<\/b>\s*([^<]+)/i.exec(rawText);
+  if (messageMatch && messageMatch[1]) {
+    const msg = messageMatch[1].trim();
+    if (msg.includes('overloaded') || msg.includes('maximum number of synchronous queued jobs')) {
+      return `ESA Gaia TAP server is temporarily overloaded (${status}): maximum synchronous queue limit reached. Please retry in a few moments.`;
+    }
+    return `Gaia TAP error (${status}): ${msg}`;
+  }
+
+  // 2. Check for <title> or <h1> in HTML response
+  const titleMatch = /<title>([^<]+)<\/title>/i.exec(rawText);
+  const h1Match = /<h1[^>]*>([^<]+)<\/h1>/i.exec(rawText);
+
+  // 3. If rawText appears to contain HTML, strip style/script/tags and clean whitespace
+  if (/<[a-z][\s\S]*>/i.test(rawText)) {
+    const stripped = rawText
+      .replace(/<style[\s\S]*?<\/style>/gi, '')
+      .replace(/<script[\s\S]*?<\/script>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (stripped.length > 0 && stripped.length <= 250) {
+      return `Gaia TAP error (${status}): ${stripped}`;
+    }
+    if (h1Match && h1Match[1]) {
+      return `Gaia TAP error (${status}): ${h1Match[1].trim()}`;
+    }
+    if (titleMatch && titleMatch[1]) {
+      return `Gaia TAP error (${status}): ${titleMatch[1].trim()}`;
+    }
+    return `Gaia TAP request failed with HTTP ${status} (Service Unavailable).`;
+  }
+
+  return `Gaia TAP request failed with status ${status}: ${rawText.slice(0, 180).trim()}`;
+}
+
 export function parseTapTabularResponse<T = Record<string, unknown>>(
   tapResponse: GaiaTapJsonResponse
 ): T[] {
@@ -266,11 +317,15 @@ export class GaiaClient {
   private readonly endpoint: string;
   private readonly timeoutMs: number;
   private readonly customFetch?: typeof fetch;
+  private readonly retries: number;
+  private readonly retryDelayMs: number;
 
   constructor(config: GaiaClientConfig = {}) {
     this.endpoint = (config.endpoint ?? DEFAULT_GAIA_TAP_ENDPOINT).replace(/\/+$/, '');
     this.timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.customFetch = config.fetch;
+    this.retries = Math.max(0, config.retries ?? 2);
+    this.retryDelayMs = Math.max(100, config.retryDelayMs ?? 1000);
   }
 
   /**
@@ -406,54 +461,70 @@ export class GaiaClient {
       QUERY: adql.trim(),
     });
 
-    const controller = new AbortController();
-    const timeoutTimer = setTimeout(() => controller.abort(), this.timeoutMs);
+    let attempt = 0;
+    while (true) {
+      const controller = new AbortController();
+      const timeoutTimer = setTimeout(() => controller.abort(), this.timeoutMs);
 
-    let response: Response;
-    try {
-      response = await fetchFn(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-          Accept: 'application/json',
-        },
-        body: bodyParams.toString(),
-        signal: controller.signal,
-      });
-    } catch (err: unknown) {
-      if (err instanceof Error && err.name === 'AbortError') {
-        throw new GaiaTimeoutError(`Gaia TAP request to ${url} timed out after ${this.timeoutMs}ms.`);
+      let response: Response;
+      try {
+        response = await fetchFn(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+            Accept: 'application/json',
+          },
+          body: bodyParams.toString(),
+          signal: controller.signal,
+        });
+      } catch (err: unknown) {
+        clearTimeout(timeoutTimer);
+        const isTimeout = err instanceof Error && err.name === 'AbortError';
+        const transientErr = isTimeout
+          ? new GaiaTimeoutError(`Gaia TAP request to ${url} timed out after ${this.timeoutMs}ms.`)
+          : new GaiaError(`Network error querying Gaia TAP at ${url}: ${(err as Error).message}`);
+
+        if (attempt < this.retries) {
+          attempt++;
+          const delay = this.retryDelayMs * Math.pow(1.8, attempt - 1);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          continue;
+        }
+        throw transientErr;
+      } finally {
+        clearTimeout(timeoutTimer);
       }
-      throw new GaiaError(`Network error querying Gaia TAP at ${url}: ${(err as Error).message}`);
-    } finally {
-      clearTimeout(timeoutTimer);
-    }
 
-    const rawText = await response.text();
+      const rawText = await response.text();
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        throw new GaiaRateLimitError(
-          `Rate limit exceeded (429): Gaia TAP quota reached. Details: ${rawText.slice(0, 300)}`
+      if (!response.ok) {
+        const cleanMsg = extractTapErrorMessage(rawText, response.status);
+        const isTransient = [500, 502, 503, 504].includes(response.status) || response.status === 429;
+
+        if (attempt < this.retries && isTransient) {
+          attempt++;
+          const delay = this.retryDelayMs * Math.pow(1.8, attempt - 1);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          continue;
+        }
+
+        if (response.status === 429) {
+          throw new GaiaRateLimitError(`Rate limit exceeded (429): ${cleanMsg}`);
+        }
+        throw new GaiaRequestError(cleanMsg, response.status, rawText);
+      }
+
+      let tapJson: GaiaTapJsonResponse;
+      try {
+        tapJson = parseLosslessGaiaJson<GaiaTapJsonResponse>(rawText);
+      } catch (parseErr: unknown) {
+        throw new GaiaError(
+          `Failed to parse Gaia TAP JSON from ${url}: ${(parseErr as Error).message}. Body: ${rawText.slice(0, 200)}`
         );
       }
-      throw new GaiaRequestError(
-        `Gaia TAP request failed with status ${response.status}: ${rawText.slice(0, 300)}`,
-        response.status,
-        rawText
-      );
-    }
 
-    let tapJson: GaiaTapJsonResponse;
-    try {
-      tapJson = parseLosslessGaiaJson<GaiaTapJsonResponse>(rawText);
-    } catch (parseErr: unknown) {
-      throw new GaiaError(
-        `Failed to parse Gaia TAP JSON from ${url}: ${(parseErr as Error).message}. Body: ${rawText.slice(0, 200)}`
-      );
+      return parseTapTabularResponse<T>(tapJson);
     }
-
-    return parseTapTabularResponse<T>(tapJson);
   }
 
   private mapRowsToStars(rawRows: Array<Record<string, unknown>>): GaiaStar[] {

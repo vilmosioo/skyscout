@@ -9,11 +9,13 @@ import {
   fetchCustomConeStars,
   fetchTargetStars,
   findClosestStarAtPoint,
+  generateClusterFallbackStars,
   generateClusterPreviewPoints,
   getGaiaStarExternalUrls,
   getStarPhysicalDetails,
   HR_BOUNDS,
   panHrBounds,
+  renderGalleryPosterCanvas,
   searchCatalogPresets,
   starToCanvasXY,
   TARGET_PRESETS,
@@ -147,6 +149,24 @@ describe('Expanded Messier & Famous Clusters Catalog + Multi-Select', () => {
     expect(previewPts.length).toBeGreaterThan(150);
   });
 
+  it('generates rich, physics-accurate offline fallback stars for clusters', () => {
+    const pleiades = TARGET_PRESETS.find((p) => p.id === 'pleiades')!;
+    const fallbackStars = generateClusterFallbackStars(pleiades);
+
+    expect(fallbackStars.length).toBeGreaterThan(300);
+    const first = fallbackStars[0];
+    expect(first.sourceId).toMatch(/^synth-pleiades-/);
+    expect(typeof first.ra).toBe('number');
+    expect(typeof first.dec).toBe('number');
+    expect(first.distancePc).toBe(136);
+    expect(first.parallaxMas).toBeGreaterThan(0);
+    expect(first.absoluteMagG).not.toBeNull();
+    expect(first.magG).toBeGreaterThan(0);
+    expect(first.logLuminositySolar).not.toBeNull();
+    expect(first.teffK).toBeGreaterThan(2000);
+    expect(first.spectralClass).not.toBeNull();
+  });
+
   it('computes constant-radius Stefan-Boltzmann curves', () => {
     const curve1Solar = computeConstantRadiusCurve(1, 30);
     const curve100Solar = computeConstantRadiusCurve(100, 30);
@@ -263,6 +283,48 @@ describe('fetchTargetStars Live Dispatch & Local Caching', () => {
         radiusDeg: 0.65,
         limit: 800,
       })
+    );
+  });
+
+  it('renders 18x24 museum gallery poster canvas with plaque metadata', () => {
+    const mockCtx = {
+      fillRect: vi.fn(),
+      fillText: vi.fn(),
+      strokeRect: vi.fn(),
+      beginPath: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      stroke: vi.fn(),
+      arc: vi.fn(),
+      fill: vi.fn(),
+      save: vi.fn(),
+      restore: vi.fn(),
+      translate: vi.fn(),
+      rotate: vi.fn(),
+      clip: vi.fn(),
+      rect: vi.fn(),
+      setLineDash: vi.fn(),
+    } as unknown as CanvasRenderingContext2D;
+
+    const pleiadesPreset = TARGET_PRESETS.find((p) => p.id === 'pleiades')!;
+
+    expect(() =>
+      renderGalleryPosterCanvas({
+        ctx: mockCtx,
+        bounds: HR_BOUNDS,
+        schemeId: 'blackbody',
+        stars: [{ star: sampleStar, sourceLabel: 'Pleiades' }],
+        showRadiusLines: true,
+        primaryPreset: pleiadesPreset,
+        additionalPresets: [],
+      })
+    ).not.toThrow();
+
+    expect(mockCtx.fillRect).toHaveBeenCalledWith(0, 0, 5400, 7200);
+    expect(mockCtx.fillText).toHaveBeenCalledWith(
+      expect.stringContaining('PLEIADES'),
+      expect.any(Number),
+      expect.any(Number)
     );
   });
 });
