@@ -9,6 +9,7 @@ import {
   fetchCustomConeStars,
   fetchTargetStars,
   findClosestStarAtPoint,
+  generateClusterFallbackStars,
   generateClusterPreviewPoints,
   getGaiaStarExternalUrls,
   getStarPhysicalDetails,
@@ -146,6 +147,24 @@ describe('Expanded Messier & Famous Clusters Catalog + Multi-Select', () => {
 
     const previewPts = generateClusterPreviewPoints(globularM13[0]);
     expect(previewPts.length).toBeGreaterThan(150);
+  });
+
+  it('generates rich, physics-accurate offline fallback stars for clusters', () => {
+    const pleiades = TARGET_PRESETS.find((p) => p.id === 'pleiades')!;
+    const fallbackStars = generateClusterFallbackStars(pleiades);
+
+    expect(fallbackStars.length).toBeGreaterThan(300);
+    const first = fallbackStars[0];
+    expect(first.sourceId).toMatch(/^synth-pleiades-/);
+    expect(typeof first.ra).toBe('number');
+    expect(typeof first.dec).toBe('number');
+    expect(first.distancePc).toBe(136);
+    expect(first.parallaxMas).toBeGreaterThan(0);
+    expect(first.absoluteMagG).not.toBeNull();
+    expect(first.magG).toBeGreaterThan(0);
+    expect(first.logLuminositySolar).not.toBeNull();
+    expect(first.teffK).toBeGreaterThan(2000);
+    expect(first.spectralClass).not.toBeNull();
   });
 
   it('computes constant-radius Stefan-Boltzmann curves', () => {

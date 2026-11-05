@@ -482,6 +482,44 @@ body {
   font-size: 0.85rem;
 }
 
+.warning-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: rgba(234, 179, 8, 0.12);
+  border: 1px solid rgba(234, 179, 8, 0.35);
+  color: #fde047;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.warning-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.banner-action-btn {
+  background: rgba(234, 179, 8, 0.22);
+  border: 1px solid rgba(234, 179, 8, 0.55);
+  color: #fef08a;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.banner-action-btn:hover {
+  background: rgba(234, 179, 8, 0.38);
+  border-color: #fef08a;
+}
+
 /* Home Catalog Grid & Wouter Navigation Styles */
 .breadcrumb-row {
   display: flex;

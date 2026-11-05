@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_GAIA_TAP_ENDPOINT,
+  extractTapErrorMessage,
   GaiaClient,
   mapRawGaiaRowToStar,
   parseLosslessGaiaJson,
@@ -252,5 +253,57 @@ describe('Error Hierarchy', () => {
     });
 
     await expect(client.searchStars({ limit: 10 })).rejects.toThrow(GaiaTimeoutError);
+  });
+
+  it('extracts clean, user-friendly messages from ESA 503 HTML error responses', () => {
+    const esa503Html = `<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<style type="text/css">
+body { background-color: white; color: black; }
+</style>
+<title>SERVICE ERROR</title>
+</head>
+<body>
+<h1 style="text-align: center; background-color:red; color: white; font-weight: bold;">SERVICE ERROR - 503</h1>
+<h2>Description</h2>
+<ul>
+<li><b>Action: </b>Handling request</li>
+<li><b>Message: </b>Server overloaded: synchronous job rejected due to maximum number of synchronous queued jobs (150) reached. Please, try again later.</li>
+</ul>
+</body>
+</html>`;
+
+    const cleaned = extractTapErrorMessage(esa503Html, 503);
+    expect(cleaned).toContain('ESA Gaia TAP server is temporarily overloaded (503)');
+    expect(cleaned).toContain('maximum synchronous queue limit reached');
+    expect(cleaned).not.toContain('<style');
+    expect(cleaned).not.toContain('<html');
+  });
+
+  it('retries transient 503 errors and succeeds when service recovers', async () => {
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        text: async () => '<html><body><b>Message: </b>Server overloaded</body></html>',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: async () => sampleTapPayload,
+      });
+
+    const client = new GaiaClient({
+      fetch: mockFetch as unknown as typeof fetch,
+      retries: 2,
+      retryDelayMs: 10,
+    });
+
+    const stars = await client.searchStars({ limit: 5 });
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(stars).toHaveLength(1);
+    expect(stars[0].sourceId).toBe('64995134679307264');
   });
 });

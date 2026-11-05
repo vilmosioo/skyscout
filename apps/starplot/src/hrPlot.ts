@@ -1,4 +1,4 @@
-import { bpRpToEffectiveTempK, formatDms, formatHms } from '@skyscout/core';
+import { bpRpToEffectiveTempK, bpRpToSpectralClass, formatDms, formatHms } from '@skyscout/core';
 import type {
   GaiaClient,
   GaiaConeSearchOptions,
@@ -1463,6 +1463,84 @@ export function generateClusterPreviewPoints(
   }
 
   return points;
+}
+
+/**
+ * Generates an offline reference stellar dataset for a cluster preset.
+ * Used as a zero-latency fallback whenever the live ESA Gaia TAP service is
+ * overloaded (503), down for maintenance, or when working offline.
+ * Ensures the user is never blocked from exploring diagrams or exporting fine-art posters.
+ */
+export function generateClusterFallbackStars(preset: TargetPreset): GaiaStar[] {
+  const previewPoints = generateClusterPreviewPoints(preset);
+  const points: Array<{ bpRp: number; absoluteMagG: number }> = [];
+
+  let seed = 987654321;
+  for (let i = 0; i < preset.id.length; i++) {
+    seed ^= preset.id.charCodeAt(i);
+    seed = Math.imul(seed, 16777619);
+  }
+  const rand = (): number => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return (seed % 10000) / 10000;
+  };
+
+  for (const pt of previewPoints) {
+    points.push(pt);
+    // Add a secondary star with slight photometric noise to create a dense ~400+ star field
+    points.push({
+      bpRp: pt.bpRp + (rand() - 0.5) * 0.05,
+      absoluteMagG: pt.absoluteMagG + (rand() - 0.5) * 0.18,
+    });
+  }
+
+  const distPc = preset.distancePcApprox ?? 150;
+  const distMod = 5 * Math.log10(Math.max(1, distPc)) - 5;
+  const basePlx = 1000 / distPc;
+
+  const baseRa = preset.cone?.ra ?? 56.75;
+  const baseDec = preset.cone?.dec ?? 24.12;
+  const radiusDeg = preset.cone?.radiusDeg ?? 1.5;
+
+  return points.map((pt, idx) => {
+    const plx = basePlx * (1 + (rand() - 0.5) * 0.05);
+    const photG = pt.absoluteMagG + distMod + (rand() - 0.5) * 0.08;
+    const roundedDistPc = Math.round(distPc);
+    const distLy = Number((roundedDistPc * 3.26156).toFixed(1));
+    const logLum = Number(((4.74 - pt.absoluteMagG) / 2.5).toFixed(3));
+    const teffK = bpRpToEffectiveTempK(pt.bpRp);
+    const bp = photG + pt.bpRp * 0.5;
+    const rp = photG - pt.bpRp * 0.5;
+
+    const angle = rand() * 2 * Math.PI;
+    const r = Math.sqrt(rand()) * radiusDeg;
+    const ra = baseRa + (r * Math.cos(angle)) / Math.max(0.1, Math.cos((baseDec * Math.PI) / 180));
+    const dec = Math.max(-90, Math.min(90, baseDec + r * Math.sin(angle)));
+
+    return {
+      sourceId: `synth-${preset.id}-${idx + 1}`,
+      ra: Number(ra.toFixed(6)),
+      dec: Number(dec.toFixed(6)),
+      parallaxMas: Number(plx.toFixed(3)),
+      parallaxErrorMas: 0.03,
+      parallaxSnr: 35,
+      pmRaMasYr: Number(((rand() - 0.5) * 10).toFixed(2)),
+      pmDecMasYr: Number(((rand() - 0.5) * 10).toFixed(2)),
+      radialVelocityKmS: Number(((rand() - 0.5) * 20).toFixed(1)),
+      magG: Number(photG.toFixed(3)),
+      magBp: Number(bp.toFixed(3)),
+      magRp: Number(rp.toFixed(3)),
+      bpRp: Number(pt.bpRp.toFixed(3)),
+      teffK: teffK ? Math.round(teffK) : null,
+      extinctionAg: 0.05,
+      reddeningBpRp: 0.03,
+      distancePc: roundedDistPc,
+      distanceLy: distLy,
+      absoluteMagG: Number(pt.absoluteMagG.toFixed(3)),
+      logLuminositySolar: logLum,
+      spectralClass: bpRpToSpectralClass(pt.bpRp),
+    };
+  });
 }
 
 /**

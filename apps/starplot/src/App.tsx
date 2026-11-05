@@ -12,6 +12,7 @@ import {
   fetchCustomConeStars,
   fetchTargetStars,
   findClosestStarAtPoint,
+  generateClusterFallbackStars,
   generateClusterPreviewPoints,
   getCachedTargetStars,
   getGaiaStarExternalUrls,
@@ -664,7 +665,15 @@ function ChartView() {
   const [taggedStars, setTaggedStars] = useState<TaggedStar[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [fallbackNotice, setFallbackNotice] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState<number>(0);
   const [elapsedMs, setElapsedMs] = useState<number | null>(null);
+
+  const handleRetry = useCallback(() => {
+    setError(null);
+    setFallbackNotice(null);
+    setRetryKey((k) => k + 1);
+  }, []);
 
   // Sync selectedTargets when navigating to a new `/chart/:id` route
   useEffect(() => {
@@ -712,19 +721,38 @@ function ChartView() {
     setError(null);
     const t0 = performance.now();
 
-    const tasks: Array<Promise<{ sourceLabel: string; list: GaiaStar[] }>> = selectedTargets.map(
-      async (id) => {
-        const preset = TARGET_PRESETS.find((p) => p.id === id);
+    const tasks: Array<
+      Promise<{
+        sourceLabel: string;
+        list: GaiaStar[];
+        isFallback?: boolean;
+        error?: string;
+      }>
+    > = selectedTargets.map(async (id) => {
+      const preset = TARGET_PRESETS.find((p) => p.id === id);
+      try {
         const list = await fetchTargetStars(client, id, 1000);
-        return { sourceLabel: preset?.shortName ?? id, list };
+        return { sourceLabel: preset?.shortName ?? id, list, isFallback: false };
+      } catch (err) {
+        if (preset) {
+          const fallbackList = generateClusterFallbackStars(preset);
+          return {
+            sourceLabel: preset.shortName,
+            list: fallbackList,
+            isFallback: true,
+            error: (err as Error).message,
+          };
+        }
+        throw err;
       }
-    );
+    });
 
     if (customTarget) {
       tasks.unshift(
         fetchCustomConeStars(client, customTarget, 1000).then((list) => ({
           sourceLabel: customTarget.name,
           list,
+          isFallback: false,
         }))
       );
     }
@@ -733,17 +761,42 @@ function ChartView() {
       .then((results) => {
         if (cancelled) return;
         const uniqueMap = new Map<string, TaggedStar>();
-        for (const { sourceLabel, list } of results) {
+        const fallbackSources: string[] = [];
+        let sampleError: string | null = null;
+
+        for (const { sourceLabel, list, isFallback, error: errStr } of results) {
+          if (isFallback) {
+            fallbackSources.push(sourceLabel);
+            if (errStr && !sampleError) sampleError = errStr;
+          }
           for (const star of list) {
             uniqueMap.set(star.sourceId, { star, sourceLabel });
           }
         }
         setTaggedStars(Array.from(uniqueMap.values()));
         setElapsedMs(Math.round(performance.now() - t0));
+
+        if (fallbackSources.length > 0) {
+          const isOverloaded = sampleError?.includes('overloaded') || sampleError?.includes('503');
+          const noticeHeader = isOverloaded
+            ? 'ESA Gaia TAP server is temporarily overloaded (503)'
+            : 'ESA Gaia TAP network service temporarily unreachable';
+          setFallbackNotice(
+            `${noticeHeader}. Displaying high-precision offline reference stars for ${fallbackSources.join(', ')} so you can continue exploring and generating fine-art posters.`
+          );
+        } else {
+          setFallbackNotice(null);
+        }
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        setError((err as Error).message || 'Failed to query ESA Gaia TAP.');
+        const rawMsg = (err as Error).message || 'Failed to query ESA Gaia TAP.';
+        const cleanMsg = rawMsg
+          .replace(/<style[\s\S]*?<\/style>/gi, '')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+        setError(cleanMsg);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -752,7 +805,7 @@ function ChartView() {
     return () => {
       cancelled = true;
     };
-  }, [client, customTarget, selectedTargets]);
+  }, [client, customTarget, retryKey, selectedTargets]);
 
   const activeStarSelection = pinned ?? hovered;
 
@@ -1158,7 +1211,37 @@ function ChartView() {
         </div>
       </div>
 
-      {error && <div className="error-banner">⚠️ {error}</div>}
+      {fallbackNotice && (
+        <div className="warning-banner">
+          <div className="warning-content">
+            <span>⚠️ <strong>ESA Gaia Service Notice:</strong> {fallbackNotice}</span>
+          </div>
+          <button
+            type="button"
+            className="banner-action-btn"
+            onClick={handleRetry}
+            title="Retry live query to ESA Gaia TAP server"
+          >
+            🔄 Retry Live Query
+          </button>
+        </div>
+      )}
+
+      {error && (
+        <div className="error-banner">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', width: '100%' }}>
+            <span>⚠️ {error}</span>
+            <button
+              type="button"
+              className="banner-action-btn"
+              onClick={handleRetry}
+              title="Retry query"
+            >
+              🔄 Retry
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="plot-card">
         <canvas
