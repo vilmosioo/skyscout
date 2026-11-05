@@ -1,4 +1,4 @@
-import { bpRpToEffectiveTempK } from '@skyscout/core';
+import { bpRpToEffectiveTempK, formatDms, formatHms } from '@skyscout/core';
 import type {
   GaiaClient,
   GaiaConeSearchOptions,
@@ -1464,4 +1464,354 @@ export function generateClusterPreviewPoints(
 
   return points;
 }
+
+/**
+ * Renders an 18" × 24" at 300 DPI (5400 × 7200 px) Portrait Gallery Poster
+ * featuring the classic Wikipedia / Richard Powell H–R diagram on top
+ * and an editorial Clean Museum Edition typography block at the bottom.
+ */
+export function renderGalleryPosterCanvas(options: {
+  ctx: CanvasRenderingContext2D;
+  width?: number;
+  height?: number;
+  bounds: HrBounds;
+  schemeId: ColorSchemeId;
+  stars: Array<{ star: GaiaStar; sourceLabel: string }>;
+  showRadiusLines?: boolean;
+  primaryPreset?: TargetPreset | null;
+  customTarget?: CustomConeTarget | null;
+  additionalPresets?: TargetPreset[];
+}): void {
+  const {
+    ctx,
+    width = 5400,
+    height = 7200,
+    bounds,
+    schemeId,
+    stars,
+    showRadiusLines = false,
+    primaryPreset,
+    customTarget,
+    additionalPresets = [],
+  } = options;
+
+  const scheme = COLOR_SCHEMES[schemeId];
+  const isLightTheme = schemeId === 'print-light';
+  const scale = 4.5;
+
+  // 1. Canvas background
+  ctx.fillStyle = scheme.canvasBg;
+  ctx.fillRect(0, 0, width, height);
+
+  // 2. Plot area geometry (centered horizontally, top margin for frame bleed)
+  const box: PlotBox = {
+    left: 440,
+    top: 360,
+    width: 4520,
+    height: 4550,
+  };
+
+  // Top Spectral Class & Surface Temperature Header (O B A F G K M + Kelvin ticks)
+  const spectralHeader: Array<{ cls: string; bpRp: number; temp: string }> = [
+    { cls: 'O', bpRp: -0.42, temp: '30000K' },
+    { cls: 'B', bpRp: -0.15, temp: '10000K' },
+    { cls: 'A', bpRp: 0.12, temp: '7500K' },
+    { cls: 'F', bpRp: 0.45, temp: '6000K' },
+    { cls: 'G', bpRp: 0.82, temp: '5000K' },
+    { cls: 'K', bpRp: 1.32, temp: '4000K' },
+    { cls: 'M', bpRp: 2.15, temp: '3000K' },
+  ];
+
+  ctx.textAlign = 'center';
+  for (const sp of spectralHeader) {
+    const { x } = starToCanvasXY(sp.bpRp, 0, box, bounds);
+    if (x >= box.left + 24 && x <= box.left + box.width - 24) {
+      ctx.font = `700 ${Math.round(13 * scale)}px "Inter", sans-serif`;
+      ctx.fillStyle = bpRpToStarHexColor(sp.bpRp, schemeId);
+      ctx.fillText(sp.cls, x, box.top - 28 * scale);
+
+      ctx.strokeStyle = scheme.axisTextColor;
+      ctx.lineWidth = 1.2 * scale;
+      ctx.beginPath();
+      ctx.moveTo(x, box.top);
+      ctx.lineTo(x, box.top - 6 * scale);
+      ctx.stroke();
+
+      ctx.font = `400 ${Math.round(10 * scale)}px "JetBrains Mono", monospace`;
+      ctx.fillStyle = scheme.axisTextColor;
+      ctx.fillText(sp.temp, x, box.top - 10 * scale);
+    }
+  }
+
+  // Bottom X-axis ticks: Color Index (G_BP - G_RP)
+  ctx.strokeStyle = scheme.axisTextColor;
+  ctx.fillStyle = scheme.axisTextColor;
+  ctx.lineWidth = 1.2 * scale;
+  ctx.font = `400 ${Math.round(10.5 * scale)}px "JetBrains Mono", monospace`;
+
+  const xStep = bounds.maxBpRp - bounds.minBpRp > 1.8 ? 0.5 : 0.2;
+  const firstX = Math.ceil(bounds.minBpRp / xStep) * xStep;
+  for (let c = firstX; c <= bounds.maxBpRp + 1e-6; c += xStep) {
+    const { x } = starToCanvasXY(c, 0, box, bounds);
+    if (x < box.left || x > box.left + box.width) continue;
+
+    ctx.beginPath();
+    ctx.moveTo(x, box.top + box.height);
+    ctx.lineTo(x, box.top + box.height + 6 * scale);
+    ctx.stroke();
+
+    ctx.textAlign = 'center';
+    const prefix = c > 0.001 ? '+' : '';
+    ctx.fillText(`${prefix}${c.toFixed(xStep < 0.5 ? 2 : 1)}`, x, box.top + box.height + 18 * scale);
+  }
+
+  // Right Y-axis ticks: Absolute Magnitude (M_G)
+  const yStep = bounds.maxAbsMag - bounds.minAbsMag > 10 ? 5 : 2;
+  const firstY = Math.ceil(bounds.minAbsMag / yStep) * yStep;
+  for (let m = firstY; m <= bounds.maxAbsMag + 1e-6; m += yStep) {
+    const { y } = starToCanvasXY(0, m, box, bounds);
+    if (y < box.top || y > box.top + box.height) continue;
+
+    ctx.strokeStyle = scheme.axisTextColor;
+    ctx.beginPath();
+    ctx.moveTo(box.left + box.width, y);
+    ctx.lineTo(box.left + box.width + 6 * scale, y);
+    ctx.stroke();
+
+    ctx.fillStyle = scheme.titleTextColor;
+    ctx.textAlign = 'left';
+    ctx.fillText(`${m > 0 ? '+' : ''}${m}`, box.left + box.width + 10 * scale, y + 3.5 * scale);
+  }
+
+  // Left Y-axis decade ticks: Solar Luminosity (L / L_sun = 10^(0.4 * (4.67 - M_G)))
+  const lumDecades: Array<{ lumLabel: string; logLum: number }> = [
+    { lumLabel: '100 000', logLum: 5 },
+    { lumLabel: '10 000', logLum: 4 },
+    { lumLabel: '1000', logLum: 3 },
+    { lumLabel: '100', logLum: 2 },
+    { lumLabel: '10', logLum: 1 },
+    { lumLabel: '1', logLum: 0 },
+    { lumLabel: '0.1', logLum: -1 },
+    { lumLabel: '0.01', logLum: -2 },
+    { lumLabel: '0.001', logLum: -3 },
+    { lumLabel: '0.0001', logLum: -4 },
+  ];
+  for (const dec of lumDecades) {
+    const absMag = 4.67 - 2.5 * dec.logLum;
+    const { y } = starToCanvasXY(0, absMag, box, bounds);
+    if (y < box.top + 12 || y > box.top + box.height - 12) continue;
+
+    ctx.strokeStyle = scheme.axisTextColor;
+    ctx.beginPath();
+    ctx.moveTo(box.left - 6 * scale, y);
+    ctx.lineTo(box.left, y);
+    ctx.stroke();
+
+    ctx.fillStyle = scheme.titleTextColor;
+    ctx.textAlign = 'right';
+    ctx.fillText(dec.lumLabel, box.left - 10 * scale, y + 3.5 * scale);
+  }
+
+  // Clip interior plot region
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(box.left, box.top, box.width, box.height);
+  ctx.clip();
+
+  // Optional Constant Stellar Radius Overlay Lines (0.01 R☉ to 1000 R☉)
+  if (showRadiusLines) {
+    ctx.save();
+    ctx.strokeStyle = isLightTheme ? 'rgba(15, 23, 42, 0.22)' : 'rgba(148, 163, 184, 0.25)';
+    ctx.fillStyle = isLightTheme ? 'rgba(15, 23, 42, 0.55)' : 'rgba(148, 163, 184, 0.65)';
+    ctx.lineWidth = 1 * scale;
+    ctx.setLineDash([4 * scale, 4 * scale]);
+    ctx.font = `${Math.round(9.5 * scale)}px "JetBrains Mono", monospace`;
+    ctx.textAlign = 'left';
+
+    for (const rSolar of RADIUS_LINES_SOLAR) {
+      const curve = computeConstantRadiusCurve(rSolar, 42);
+      ctx.beginPath();
+      curve.forEach((pt, idx) => {
+        const { x, y } = starToCanvasXY(pt.bpRp, pt.absoluteMagG, box, bounds);
+        if (idx === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+
+      const labelAnchor = curve[6];
+      if (labelAnchor) {
+        const pos = starToCanvasXY(labelAnchor.bpRp, labelAnchor.absoluteMagG, box, bounds);
+        ctx.fillText(`${rSolar} R☉`, pos.x + 4 * scale, pos.y - 4 * scale);
+      }
+    }
+    ctx.restore();
+  }
+
+  // Plot live Gaia stars as pinpoint fine-art stardust points
+  ctx.save();
+  if (!isLightTheme) {
+    ctx.globalCompositeOperation = 'lighter';
+  }
+  for (const { star } of stars) {
+    if (star.bpRp === null || star.absoluteMagG === null) continue;
+    const { x, y } = starToCanvasXY(star.bpRp, star.absoluteMagG, box, bounds);
+    if (x < box.left - 10 || x > box.left + box.width + 10) continue;
+    if (y < box.top - 10 || y > box.top + box.height + 10) continue;
+
+    const color = bpRpToStarHexColor(star.bpRp, schemeId);
+    const radius = computeStarCanvasRadius(star.absoluteMagG, scale);
+
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.globalAlpha = isLightTheme ? 0.85 : 0.80;
+    ctx.fill();
+  }
+  ctx.restore();
+  ctx.restore(); // end of clip
+
+  // Crisp outer plot frame border
+  ctx.strokeStyle = isLightTheme ? '#334155' : 'rgba(203, 213, 225, 0.80)';
+  ctx.lineWidth = 1.3 * scale;
+  ctx.strokeRect(box.left, box.top, box.width, box.height);
+
+  // Axis titles
+  ctx.fillStyle = scheme.axisTextColor;
+  ctx.font = `500 ${Math.round(11.5 * scale)}px "Inter", sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.fillText('Colour Index (G_BP − G_RP)', box.left + box.width / 2, box.top + box.height + 34 * scale);
+
+  ctx.fillStyle = scheme.titleTextColor;
+  ctx.save();
+  ctx.translate(16 * scale, box.top + box.height / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('Luminosity (Sun = 1)', 0, 0);
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(width - 14 * scale, box.top + box.height / 2);
+  ctx.rotate(Math.PI / 2);
+  ctx.fillText('Absolute Magnitude (M_G)', 0, 0);
+  ctx.restore();
+
+  // 3. Editorial Clean Museum Plaque Block
+  const centerX = width / 2;
+
+  let mainTitle = 'HERTZSPRUNG–RUSSELL DIAGRAM';
+  let subtitle = 'STELLAR EVOLUTION & SPECTRAL CLASSIFICATION';
+
+  if (additionalPresets.length > 0 && primaryPreset) {
+    mainTitle = 'STELLAR POPULATION COMPARISON';
+    subtitle = [primaryPreset.shortName, ...additionalPresets.map((p) => p.shortName)]
+      .join('  •  ')
+      .toUpperCase();
+  } else if (primaryPreset) {
+    mainTitle = (
+      primaryPreset.catalogCode ? `${primaryPreset.catalogCode} · ` : ''
+    ) + primaryPreset.shortName.toUpperCase();
+    subtitle = 'HERTZSPRUNG–RUSSELL STELLAR POPULATION DIAGRAM';
+  } else if (customTarget) {
+    mainTitle = customTarget.name.toUpperCase();
+    subtitle = `ICRS CONE · RA ${customTarget.ra.toFixed(2)}°  DEC ${customTarget.dec.toFixed(2)}°`;
+  }
+
+  // Museum Title
+  ctx.font = `700 110px "Inter", sans-serif`;
+  ctx.fillStyle = isLightTheme ? '#0f172a' : scheme.titleTextColor;
+  ctx.textAlign = 'center';
+  ctx.fillText(mainTitle, centerX, 5280);
+
+  // Subtitle
+  ctx.font = `500 42px "Inter", sans-serif`;
+  ctx.fillStyle = scheme.axisTextColor;
+  ctx.fillText(subtitle, centerX, 5370);
+
+  // Primary dividing rule
+  ctx.strokeStyle = isLightTheme ? 'rgba(15, 23, 42, 0.22)' : 'rgba(255, 255, 255, 0.2)';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(box.left, 5450);
+  ctx.lineTo(box.left + box.width, 5450);
+  ctx.stroke();
+
+  // 5 Museum Plaque Columns
+  const distPc = primaryPreset?.distancePcApprox ?? (customTarget?.minDistancePc ?? 100);
+  const distStr =
+    distPc >= 1000
+      ? `~${(distPc / 1000).toFixed(1)} kpc (${Math.round((distPc * 3.26156) / 1000)} kly)`
+      : `~${distPc} pc (${Math.round(distPc * 3.26156)} ly)`;
+
+  let coordStr = 'ALL-SKY (4π sr)';
+  if (primaryPreset?.cone) {
+    coordStr = `${formatHms(primaryPreset.cone.ra, 0)}  ${formatDms(primaryPreset.cone.dec, 0)}`;
+  } else if (customTarget) {
+    coordStr = `${formatHms(customTarget.ra, 0)}  ${formatDms(customTarget.dec, 0)}`;
+  }
+
+  const columns = [
+    {
+      label: 'CATALOG ID',
+      value: primaryPreset?.catalogCode ?? primaryPreset?.shortName ?? 'GAIA DR3',
+    },
+    {
+      label: 'CLASSIFICATION',
+      value: primaryPreset?.category?.toUpperCase() ?? 'STELLAR FIELD',
+    },
+    {
+      label: 'COORDINATES (J2000)',
+      value: coordStr,
+    },
+    {
+      label: 'DISTANCE',
+      value: distStr,
+    },
+    {
+      label: 'CLUSTER AGE',
+      value: primaryPreset?.age?.toUpperCase() ?? 'MIXED DISK',
+    },
+  ];
+
+  const colWidth = box.width / columns.length;
+  for (let i = 0; i < columns.length; i++) {
+    const colCenter = box.left + colWidth * (i + 0.5);
+    ctx.font = `600 28px "Inter", sans-serif`;
+    ctx.fillStyle = scheme.axisTextColor;
+    ctx.fillText(columns[i].label, colCenter, 5550);
+
+    ctx.font = `500 36px "JetBrains Mono", monospace`;
+    ctx.fillStyle = isLightTheme ? '#0f172a' : '#f8fafc';
+    ctx.fillText(columns[i].value, colCenter, 5630);
+  }
+
+  // Secondary subtle dividing rule
+  ctx.strokeStyle = isLightTheme ? 'rgba(15, 23, 42, 0.12)' : 'rgba(255, 255, 255, 0.1)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(box.left, 5730);
+  ctx.lineTo(box.left + box.width, 5730);
+  ctx.stroke();
+
+  // Curated description
+  const description =
+    primaryPreset?.subtitle ??
+    'Astrometric and photometric measurement of stellar population members observed by the Gaia spacecraft.';
+  ctx.font = `400 35px "Inter", sans-serif`;
+  ctx.fillStyle = scheme.axisTextColor;
+  ctx.fillText(description, centerX, 5840);
+
+  // Bottom Provenance Line (Clean Museum Edition: zero app promotional branding)
+  ctx.font = `500 27px "JetBrains Mono", monospace`;
+  ctx.fillStyle = isLightTheme ? 'rgba(15, 23, 42, 0.65)' : 'rgba(148, 163, 184, 0.65)';
+  ctx.fillText(
+    'OBSERVATIONAL ASTROMETRY & PHOTOMETRY: EUROPEAN SPACE AGENCY (ESA) · GAIA MISSION DATA RELEASE 3',
+    centerX,
+    6680
+  );
+  ctx.fillText(
+    `${stars.length.toLocaleString()} MEASURED STELLAR SOURCES · 300 DPI FINE-ART PRINT EDITION`,
+    centerX,
+    6750
+  );
+}
+
 

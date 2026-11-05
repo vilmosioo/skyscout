@@ -21,6 +21,7 @@ import {
   panHrBounds,
   type PlotBox,
   RADIUS_LINES_SOLAR,
+  renderGalleryPosterCanvas,
   searchCatalogPresets,
   starToCanvasXY,
   TARGET_PRESETS,
@@ -925,47 +926,74 @@ function ChartView() {
     }
   };
 
-  // Export High-Resolution Print Poster (3600 x 2400 px PNG)
+  const [exportingPoster, setExportingPoster] = useState(false);
+
+  // Export 18" × 24" at 300 DPI Gallery Poster (5400 × 7200 px PNG) for Etsy / fine-art printing
   const handleExportPoster = useCallback(() => {
-    const width = 3000;
-    const height = 2100;
-    const offscreen = document.createElement('canvas');
-    offscreen.width = width;
-    offscreen.height = height;
-    const ctx = offscreen.getContext('2d');
-    if (!ctx) return;
+    if (exportingPoster) return;
+    setExportingPoster(true);
 
-    const posterBox: PlotBox = {
-      left: 180,
-      top: 290,
-      width: width - 320,
-      height: height - 440,
-    };
+    // Timeout allows the UI button to show the loading state immediately
+    setTimeout(() => {
+      try {
+        const width = 5400; // 18" at 300 DPI
+        const height = 7200; // 24" at 300 DPI
+        const offscreen = document.createElement('canvas');
+        offscreen.width = width;
+        offscreen.height = height;
+        const ctx = offscreen.getContext('2d');
+        if (!ctx) {
+          setExportingPoster(false);
+          return;
+        }
 
-    renderHrDiagramCanvas({
-      ctx,
-      width,
-      height,
-      box: posterBox,
-      bounds,
-      schemeId,
-      stars: taggedStars,
-      showRadiusLines,
-      posterHeader: {
-        title: 'HERTZSPRUNG–RUSSELL DIAGRAM',
-        subtitle: activeTitle,
-      },
-    });
+        renderGalleryPosterCanvas({
+          ctx,
+          width,
+          height,
+          bounds,
+          schemeId,
+          stars: taggedStars,
+          showRadiusLines,
+          primaryPreset: activePresets[0] ?? null,
+          customTarget,
+          additionalPresets: activePresets.slice(1),
+        });
 
-    const dataUrl = offscreen.toDataURL('image/png');
-    const link = document.createElement('a');
-    link.href = dataUrl;
-    const slug = selectedTargets.slice(0, 3).join('-') || 'custom';
-    link.download = `starplot-hr-poster-${slug}-${schemeId}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  }, [activeTitle, bounds, schemeId, selectedTargets, showRadiusLines, taggedStars]);
+        offscreen.toBlob((blob) => {
+          if (!blob) {
+            setExportingPoster(false);
+            return;
+          }
+          const dataUrl = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = dataUrl;
+          const slug =
+            selectedTargets.slice(0, 3).join('-') ||
+            customTarget?.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') ||
+            'custom';
+          link.download = `starplot-18x24-poster-${slug}-${schemeId}.png`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          setTimeout(() => URL.revokeObjectURL(dataUrl), 10000);
+          setExportingPoster(false);
+        }, 'image/png');
+      } catch (err) {
+        console.error('Failed to export gallery poster:', err);
+        setExportingPoster(false);
+      }
+    }, 40);
+  }, [
+    activePresets,
+    bounds,
+    customTarget,
+    exportingPoster,
+    schemeId,
+    selectedTargets,
+    showRadiusLines,
+    taggedStars,
+  ]);
 
   const categories: TargetCategory[] = ['Solar Volume', 'Open Cluster', 'Globular Cluster'];
 
@@ -1021,10 +1049,11 @@ function ChartView() {
           <button
             type="button"
             onClick={handleExportPoster}
+            disabled={exportingPoster || taggedStars.length === 0}
             className="action-btn primary"
-            title="Export a 3000×2100 high-resolution poster PNG for printing"
+            title="Export 18×24 inch museum fine-art poster at 300 DPI (5400×7200 px) for Etsy printing"
           >
-            🖼️ Export Print Poster (PNG)
+            {exportingPoster ? '⏳ Rendering 18×24" Poster...' : '🖼️ Export 18×24" Poster (300 DPI)'}
           </button>
         </div>
       </header>

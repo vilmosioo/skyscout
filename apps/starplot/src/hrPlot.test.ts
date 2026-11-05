@@ -14,6 +14,7 @@ import {
   getStarPhysicalDetails,
   HR_BOUNDS,
   panHrBounds,
+  renderGalleryPosterCanvas,
   searchCatalogPresets,
   starToCanvasXY,
   TARGET_PRESETS,
@@ -263,6 +264,48 @@ describe('fetchTargetStars Live Dispatch & Local Caching', () => {
         radiusDeg: 0.65,
         limit: 800,
       })
+    );
+  });
+
+  it('renders 18x24 museum gallery poster canvas with plaque metadata', () => {
+    const mockCtx = {
+      fillRect: vi.fn(),
+      fillText: vi.fn(),
+      strokeRect: vi.fn(),
+      beginPath: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      stroke: vi.fn(),
+      arc: vi.fn(),
+      fill: vi.fn(),
+      save: vi.fn(),
+      restore: vi.fn(),
+      translate: vi.fn(),
+      rotate: vi.fn(),
+      clip: vi.fn(),
+      rect: vi.fn(),
+      setLineDash: vi.fn(),
+    } as unknown as CanvasRenderingContext2D;
+
+    const pleiadesPreset = TARGET_PRESETS.find((p) => p.id === 'pleiades')!;
+
+    expect(() =>
+      renderGalleryPosterCanvas({
+        ctx: mockCtx,
+        bounds: HR_BOUNDS,
+        schemeId: 'blackbody',
+        stars: [{ star: sampleStar, sourceLabel: 'Pleiades' }],
+        showRadiusLines: true,
+        primaryPreset: pleiadesPreset,
+        additionalPresets: [],
+      })
+    ).not.toThrow();
+
+    expect(mockCtx.fillRect).toHaveBeenCalledWith(0, 0, 5400, 7200);
+    expect(mockCtx.fillText).toHaveBeenCalledWith(
+      expect.stringContaining('PLEIADES'),
+      expect.any(Number),
+      expect.any(Number)
     );
   });
 });
