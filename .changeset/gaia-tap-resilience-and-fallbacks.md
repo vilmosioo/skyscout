@@ -9,4 +9,5 @@ Improve ESA Gaia TAP resilience, error sanitization, and offline cluster fallbac
   - Automatic exponential backoff retries: Added `retries` and `retryDelayMs` options (default 2 retries) on transient 500/502/503/504, 429, and network/timeout failures.
 - `starplot`:
   - `generateClusterFallbackStars`: Provides high-precision, physics-accurate synthesized fallback star datasets for all curated cluster presets whenever live Gaia TAP queries fail or time out.
+  - Cloudflare Edge Cache API (`functions/gaia-tap/[[path]].ts`): Added deterministic SHA-256 body-hashed edge caching for TAP `POST` requests via Cloudflare `caches.default` (7-day TTL), preventing repetitive upstream hits to ESA.
   - Resilient UI: Displays an informative service banner with a one-click `🔄 Retry Live Query` action instead of dumping raw HTML or failing with zero stars, ensuring uninterrupted exploration and poster generation.
