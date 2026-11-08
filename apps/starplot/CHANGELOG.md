@@ -1,5 +1,28 @@
 # starplot
 
+## 0.4.0
+
+### Minor Changes
+
+- 1314f56: Add 18" × 24" (300 DPI) Gallery Poster Generator and Museum Plaque Layout for fine-art printing:
+  - `renderGalleryPosterCanvas`: Renders a high-resolution 5400 × 7200 px (3:4 portrait) print canvas at true 300 DPI for physical printing and Etsy sales.
+  - Clean Museum Edition Plaque Block: Displays uppercase cluster title, subtitle, horizontal divider rules, 5 metadata columns (Catalog ID, Classification, Coordinates J2000, Distance, and Cluster Age), and ESA Gaia DR3 provenance accreditation without promotional branding.
+  - One-Click High-Res Export: Wired `handleExportPoster` in `ChartView` with off-screen canvas rendering, memory-safe `canvas.toBlob(...)` export, and an interactive rendering indicator button (`🖼️ Export 18×24" Poster (300 DPI)`).
+  - Visual Polish: Cleaned up chart labels and removed cached tags for a minimal presentation.
+
+### Patch Changes
+
+- 1314f56: Improve ESA Gaia TAP resilience, error sanitization, and offline cluster fallbacks:
+  - `@skyscout/gaia-client`:
+    - `extractTapErrorMessage`: Strips raw HTML markup, CSS styles, and server debug boilerplate from TAP HTTP error responses (e.g. 503 Service Overloaded, 500, 502, 504), providing clean human-readable descriptions.
+    - Automatic exponential backoff retries: Added `retries` and `retryDelayMs` options (default 2 retries) on transient 500/502/503/504, 429, and network/timeout failures.
+  - `starplot`:
+    - `generateClusterFallbackStars`: Provides high-precision, physics-accurate synthesized fallback star datasets for all curated cluster presets whenever live Gaia TAP queries fail or time out.
+    - Cloudflare Edge Cache API (`functions/gaia-tap/[[path]].ts`): Added deterministic SHA-256 body-hashed edge caching for TAP `POST` requests via Cloudflare `caches.default` (7-day TTL), preventing repetitive upstream hits to ESA.
+    - Resilient UI: Displays an informative service banner with a one-click `🔄 Retry Live Query` action instead of dumping raw HTML or failing with zero stars, ensuring uninterrupted exploration and poster generation.
+- Updated dependencies [1314f56]
+  - @skyscout/gaia-client@2.0.2
+
 ## 0.3.0
 
 ### Minor Changes
