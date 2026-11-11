@@ -1,6 +1,6 @@
 {
   "name": "@skyscout/nasa-client",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Fully-typed TypeScript client for NASA Public Domain astronomical archives: IPAC/IRSA (2MASS, AllWISE) and STScI MAST (TESS TIC, Hubble)",
   "license": "BSD-3-Clause",
   "type": "module",
