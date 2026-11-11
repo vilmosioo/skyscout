@@ -199,7 +199,7 @@ export const TARGET_PRESETS: TargetPreset[] = [
   {
     id: 'm6',
     label: 'Butterfly Cluster (Messier 6 · NGC 6405)',
-    shortName: 'M6 Butterfly',
+    shortName: 'Butterfly',
     catalogCode: 'M6',
     constellation: 'Scorpius',
     category: 'Open Cluster',
@@ -219,7 +219,7 @@ export const TARGET_PRESETS: TargetPreset[] = [
   {
     id: 'pleiades',
     label: 'Pleiades (M45 · Seven Sisters)',
-    shortName: 'M45 Pleiades',
+    shortName: 'Pleiades',
     catalogCode: 'M45',
     constellation: 'Taurus',
     category: 'Open Cluster',
@@ -259,7 +259,7 @@ export const TARGET_PRESETS: TargetPreset[] = [
   {
     id: 'm7',
     label: 'Ptolemy Cluster (Messier 7 · NGC 6475)',
-    shortName: 'M7 Ptolemy',
+    shortName: 'Ptolemy',
     catalogCode: 'M7',
     constellation: 'Scorpius',
     category: 'Open Cluster',
@@ -279,7 +279,7 @@ export const TARGET_PRESETS: TargetPreset[] = [
   {
     id: 'm11',
     label: 'Wild Duck Cluster (M11 · NGC 6705)',
-    shortName: 'M11 Wild Duck',
+    shortName: 'Wild Duck',
     catalogCode: 'M11',
     constellation: 'Scutum',
     category: 'Open Cluster',
@@ -299,7 +299,7 @@ export const TARGET_PRESETS: TargetPreset[] = [
   {
     id: 'm38',
     label: 'Starfish Cluster (Messier 38 · NGC 1912)',
-    shortName: 'M38 Starfish',
+    shortName: 'Starfish',
     catalogCode: 'M38',
     constellation: 'Auriga',
     category: 'Open Cluster',
@@ -419,7 +419,7 @@ export const TARGET_PRESETS: TargetPreset[] = [
   {
     id: 'praesepe',
     label: 'Beehive Cluster (M44 · Praesepe)',
-    shortName: 'M44 Beehive',
+    shortName: 'Beehive',
     catalogCode: 'M44',
     constellation: 'Cancer',
     category: 'Open Cluster',
@@ -520,7 +520,7 @@ export const TARGET_PRESETS: TargetPreset[] = [
   {
     id: 'm22',
     label: 'Great Sagittarius Cluster (Messier 22 · NGC 6656)',
-    shortName: 'M22 Sagittarius',
+    shortName: 'Sagittarius',
     catalogCode: 'M22',
     constellation: 'Sagittarius',
     category: 'Globular Cluster',
@@ -600,7 +600,7 @@ export const TARGET_PRESETS: TargetPreset[] = [
   {
     id: 'm12',
     label: 'Gumball Globular (Messier 12 · NGC 6218)',
-    shortName: 'M12 Gumball',
+    shortName: 'Gumball',
     catalogCode: 'M12',
     constellation: 'Ophiuchus',
     category: 'Globular Cluster',
@@ -620,7 +620,7 @@ export const TARGET_PRESETS: TargetPreset[] = [
   {
     id: 'm13',
     label: 'Great Hercules Cluster (M13 · NGC 6205)',
-    shortName: 'M13 Hercules',
+    shortName: 'Hercules',
     catalogCode: 'M13',
     constellation: 'Hercules',
     category: 'Globular Cluster',
@@ -700,7 +700,7 @@ export const TARGET_PRESETS: TargetPreset[] = [
   {
     id: 'm15',
     label: 'Great Pegasus Cluster (Messier 15 · NGC 7078)',
-    shortName: 'M15 Pegasus',
+    shortName: 'Pegasus',
     catalogCode: 'M15',
     constellation: 'Pegasus',
     category: 'Globular Cluster',
@@ -1544,6 +1544,30 @@ export function generateClusterFallbackStars(preset: TargetPreset): GaiaStar[] {
 }
 
 /**
+ * Formats a clean, non-redundant museum poster title for a cluster preset,
+ * preventing duplicate catalog codes (e.g. avoids "M45 · M45 PLEIADES" -> "M45 · PLEIADES").
+ */
+export function formatPosterTitle(preset: TargetPreset): string {
+  const code = preset.catalogCode?.trim();
+  let name = preset.shortName?.trim();
+
+  // If shortName starts with catalogCode (e.g. "M45 Pleiades" starts with "M45"), strip it
+  if (code && name && name.toLowerCase().startsWith(code.toLowerCase())) {
+    name = name.slice(code.length).replace(/^[\s·\-\:]+/, '').trim();
+  }
+
+  if (code && name && code.toLowerCase() !== name.toLowerCase()) {
+    return `${code.toUpperCase()} · ${name.toUpperCase()}`;
+  }
+
+  if (name) {
+    return name.toUpperCase();
+  }
+
+  return (code ?? 'HERTZSPRUNG–RUSSELL DIAGRAM').toUpperCase();
+}
+
+/**
  * Renders an 18" × 24" at 300 DPI (5400 × 7200 px) Portrait Gallery Poster
  * featuring the classic Wikipedia / Richard Powell H–R diagram on top
  * and an editorial Clean Museum Edition typography block at the bottom.
@@ -1784,9 +1808,7 @@ export function renderGalleryPosterCanvas(options: {
       .join('  •  ')
       .toUpperCase();
   } else if (primaryPreset) {
-    mainTitle = (
-      primaryPreset.catalogCode ? `${primaryPreset.catalogCode} · ` : ''
-    ) + primaryPreset.shortName.toUpperCase();
+    mainTitle = formatPosterTitle(primaryPreset);
     subtitle = 'HERTZSPRUNG–RUSSELL STELLAR POPULATION DIAGRAM';
   } else if (customTarget) {
     mainTitle = customTarget.name.toUpperCase();
@@ -1891,5 +1913,68 @@ export function renderGalleryPosterCanvas(options: {
     6750
   );
 }
+
+/**
+ * Asynchronously generates and downloads a print-ready 18" × 24" (300 DPI, 5400 × 7200 px)
+ * portrait gallery poster PNG for a target preset.
+ * Uses cached Gaia DR3 stars if available, or rich synthesized fallback stars.
+ */
+export async function downloadGalleryPoster(
+  preset: TargetPreset,
+  schemeId: ColorSchemeId = 'blackbody',
+  options?: { showRadiusLines?: boolean }
+): Promise<void> {
+  if (typeof document === 'undefined') return;
+
+  const width = 5400;
+  const height = 7200;
+  const offscreen = document.createElement('canvas');
+  offscreen.width = width;
+  offscreen.height = height;
+  const ctx = offscreen.getContext('2d');
+  if (!ctx) return;
+
+  let stars = getCachedTargetStars(preset.id, 1000);
+  if (!stars || stars.length === 0) {
+    stars = generateClusterFallbackStars(preset);
+  }
+
+  const tagged = stars.map((star) => ({
+    star,
+    sourceLabel: preset.shortName,
+  }));
+
+  renderGalleryPosterCanvas({
+    ctx,
+    width,
+    height,
+    bounds: HR_BOUNDS,
+    schemeId,
+    stars: tagged,
+    showRadiusLines: options?.showRadiusLines ?? false,
+    primaryPreset: preset,
+  });
+
+  return new Promise((resolve) => {
+    offscreen.toBlob((blob) => {
+      if (!blob) {
+        resolve();
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `starplot-18x24-poster-${preset.id}-${schemeId}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+        resolve();
+      }, 5000);
+    }, 'image/png');
+  });
+}
+
 
 

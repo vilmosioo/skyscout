@@ -6,9 +6,11 @@ import {
   COLOR_SCHEMES,
   computeConstantRadiusCurve,
   computeStarCanvasRadius,
+  downloadGalleryPoster,
   fetchCustomConeStars,
   fetchTargetStars,
   findClosestStarAtPoint,
+  formatPosterTitle,
   generateClusterFallbackStars,
   generateClusterPreviewPoints,
   getGaiaStarExternalUrls,
@@ -326,5 +328,25 @@ describe('fetchTargetStars Live Dispatch & Local Caching', () => {
       expect.any(Number),
       expect.any(Number)
     );
+  });
+
+  it('handles downloadGalleryPoster safely in browser or headless environments', async () => {
+    const pleiades = TARGET_PRESETS.find((p) => p.id === 'pleiades')!;
+    // Should resolve cleanly without unhandled rejection
+    await expect(downloadGalleryPoster(pleiades, 'blackbody')).resolves.toBeUndefined();
+  });
+
+  it('formats clean, non-redundant poster titles without duplicating catalog codes', () => {
+    const pleiades = TARGET_PRESETS.find((p) => p.id === 'pleiades')!;
+    expect(formatPosterTitle(pleiades)).toBe('M45 · PLEIADES');
+
+    const m13 = TARGET_PRESETS.find((p) => p.id === 'm13')!;
+    expect(formatPosterTitle(m13)).toBe('M13 · HERCULES');
+
+    const doubleCluster = TARGET_PRESETS.find((p) => p.id === 'double-cluster')!;
+    expect(formatPosterTitle(doubleCluster)).toBe('NGC 869/884 · DOUBLE CLUSTER');
+
+    const m67 = TARGET_PRESETS.find((p) => p.id === 'm67')!;
+    expect(formatPosterTitle(m67)).toBe('M67');
   });
 });

@@ -9,6 +9,7 @@ import {
   computeConstantRadiusCurve,
   computeStarCanvasRadius,
   type CustomConeTarget,
+  downloadGalleryPoster,
   fetchCustomConeStars,
   fetchTargetStars,
   findClosestStarAtPoint,
@@ -327,7 +328,15 @@ function renderHrDiagramCanvas(options: {
  * Uses real cached Gaia DR3 stars from `localStorage` if already fetched, or deterministic
  * cluster preview points (`generateClusterPreviewPoints`) so all 32 cards render in 0ms.
  */
-function ClusterGridCard({ preset }: { preset: TargetPreset }) {
+function ClusterGridCard({
+  preset,
+  onExport,
+  isExporting = false,
+}: {
+  preset: TargetPreset;
+  onExport?: (preset: TargetPreset) => void;
+  isExporting?: boolean;
+}) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const cachedStars = useMemo(() => getCachedTargetStars(preset.id, 1000), [preset.id]);
 
@@ -386,6 +395,21 @@ function ClusterGridCard({ preset }: { preset: TargetPreset }) {
             {preset.category}
           </span>
         </div>
+        {onExport && (
+          <button
+            type="button"
+            className="card-quick-poster-btn"
+            disabled={isExporting}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onExport(preset);
+            }}
+            title={`Export 18×24" 300 DPI Fine-Art Poster for ${preset.label}`}
+          >
+            {isExporting ? '⏳' : '🖼️ 18×24"'}
+          </button>
+        )}
       </div>
 
       <div className="cluster-thumb-wrap">
@@ -423,6 +447,14 @@ function ClusterGridCard({ preset }: { preset: TargetPreset }) {
   );
 }
 
+const HERO_PRESET_IDS: TargetPresetId[] = [
+  'pleiades',
+  'm13',
+  'hyades',
+  'double-cluster',
+  'solar-50pc',
+];
+
 /**
  * `/` Home Page: Grid display of all 32 Messier, NGC & Caldwell star clusters + Custom Sky Cone Search.
  */
@@ -431,6 +463,37 @@ function HomeCatalogView() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeCategory, setActiveCategory] = useState<TargetCategory | 'All'>('All');
   const [showCustomCone, setShowCustomCone] = useState<boolean>(false);
+  const [exportTheme, setExportTheme] = useState<ColorSchemeId>('blackbody');
+  const [exportingTargetId, setExportingTargetId] = useState<string | null>(null);
+  const [exportingBatch, setExportingBatch] = useState<boolean>(false);
+
+  const handleExportSingle = async (preset: TargetPreset) => {
+    if (exportingTargetId || exportingBatch) return;
+    setExportingTargetId(preset.id);
+    try {
+      await downloadGalleryPoster(preset, exportTheme);
+    } finally {
+      setExportingTargetId(null);
+    }
+  };
+
+  const handleBatchExportTop5 = async () => {
+    if (exportingBatch) return;
+    setExportingBatch(true);
+    try {
+      for (const id of HERO_PRESET_IDS) {
+        const p = TARGET_PRESETS.find((x) => x.id === id);
+        if (p) {
+          setExportingTargetId(p.id);
+          await downloadGalleryPoster(p, exportTheme);
+          await new Promise((r) => setTimeout(r, 800));
+        }
+      }
+    } finally {
+      setExportingTargetId(null);
+      setExportingBatch(false);
+    }
+  };
 
   // Custom Cone Search Form State (defaults to NGC 752 in Andromeda as a ready-to-run example)
   const [customName, setCustomName] = useState<string>('NGC 752');
@@ -481,6 +544,9 @@ function HomeCatalogView() {
         </div>
 
         <div className="toolbar-actions">
+          <Link href="/gallery" className="action-btn">
+            🖼️ Poster Gallery
+          </Link>
           <button
             type="button"
             className={`action-btn ${showCustomCone ? 'primary' : ''}`}
@@ -574,6 +640,63 @@ function HomeCatalogView() {
         </form>
       )}
 
+      <div className="hero-poster-suite">
+        <div className="hero-suite-header">
+          <div>
+            <h2 className="hero-suite-title">🖼️ Print-Ready Poster Collection (18×24" · 300 DPI)</h2>
+            <p className="hero-suite-desc">
+              High-resolution museum editions generated directly from ESA Gaia DR3 astrometry.
+            </p>
+          </div>
+          <div className="hero-suite-controls">
+            <Link href="/gallery" className="action-btn">
+              🖼️ Interactive Gallery
+            </Link>
+            <select
+              value={exportTheme}
+              onChange={(e) => setExportTheme(e.target.value as ColorSchemeId)}
+              className="select-control hero-theme-select"
+            >
+              <option value="blackbody">🌑 Classic Black (Wikipedia/Powell)</option>
+              <option value="print-light">📜 Archival Cream (Light Paper)</option>
+              <option value="gold">✨ JWST Infrared Gold</option>
+              <option value="ultraviolet">🔮 Cosmic Ultraviolet</option>
+            </select>
+            <button
+              type="button"
+              className="action-btn primary"
+              onClick={handleBatchExportTop5}
+              disabled={exportingBatch || exportingTargetId !== null}
+              title="Download all 5 bestseller posters sequentially"
+            >
+              {exportingBatch ? '⏳ Exporting Suite...' : '⚡ Download Top 5 Bestsellers'}
+            </button>
+          </div>
+        </div>
+
+        <div className="hero-poster-pills">
+          {HERO_PRESET_IDS.map((id) => {
+            const p = TARGET_PRESETS.find((x) => x.id === id);
+            if (!p) return null;
+            const isItemExporting = exportingTargetId === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                className="hero-poster-pill"
+                disabled={isItemExporting || exportingBatch}
+                onClick={() => handleExportSingle(p)}
+                title={`Export 18×24" 300 DPI fine-art poster for ${p.label}`}
+              >
+                <span>{isItemExporting ? '⏳' : '📥'}</span>
+                <strong>{p.id === 'solar-50pc' ? 'Solar (<50 pc)' : (p.catalogCode ?? p.shortName)}</strong>
+                <span className="pill-sub">{p.id === 'solar-50pc' ? 'Local Bubble' : p.shortName}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="home-filter-bar">
         <div className="category-tabs">
           {(['All', 'Open Cluster', 'Globular Cluster', 'Solar Volume'] as const).map((cat) => (
@@ -611,7 +734,12 @@ function HomeCatalogView() {
       ) : (
         <div className="cluster-grid">
           {filteredPresets.map((preset) => (
-            <ClusterGridCard key={preset.id} preset={preset} />
+            <ClusterGridCard
+              key={preset.id}
+              preset={preset}
+              onExport={handleExportSingle}
+              isExporting={exportingTargetId === preset.id}
+            />
           ))}
         </div>
       )}
@@ -1077,6 +1205,9 @@ function ChartView() {
         </div>
 
         <div className="toolbar-actions">
+          <Link href="/gallery" className="action-btn">
+            🖼️ Poster Gallery
+          </Link>
           <button
             type="button"
             className={`action-btn ${showRadiusLines ? 'primary' : ''}`}
@@ -1451,10 +1582,398 @@ function ChartView() {
   );
 }
 
+/**
+ * `/gallery`: Dedicated Fine-Art Museum Poster Gallery & Mockup Room.
+ * Features live 3:4 canvas rendering, oak/black/white frame mockups,
+ * theme and finish selector, and 18x24" 300 DPI master exports.
+ */
+function PosterGalleryView() {
+  const searchString = useSearch();
+  const searchParams = useMemo(() => new URLSearchParams(searchString), [searchString]);
+  const initialTarget = searchParams.get('target') as TargetPresetId | null;
+
+  const client = useMemo(() => new GaiaClient(), []);
+  const [selectedId, setSelectedId] = useState<TargetPresetId>(
+    initialTarget && TARGET_PRESETS.some((p) => p.id === initialTarget)
+      ? initialTarget
+      : 'pleiades'
+  );
+  const [schemeId, setSchemeId] = useState<ColorSchemeId>('blackbody');
+  const [showRadiusLines, setShowRadiusLines] = useState<boolean>(true);
+  const [frameMockup, setFrameMockup] = useState<boolean>(true);
+  const [frameStyle, setFrameStyle] = useState<'oak' | 'black' | 'white'>('oak');
+  const [isExporting, setIsExporting] = useState<boolean>(false);
+  const [stars, setStars] = useState<GaiaStar[]>([]);
+  const [isLoadingStars, setIsLoadingStars] = useState<boolean>(false);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  const selectedPreset = useMemo(
+    () => TARGET_PRESETS.find((p) => p.id === selectedId) || TARGET_PRESETS[0],
+    [selectedId]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    const cached = getCachedTargetStars(selectedPreset.id, 1000);
+    if (cached && cached.length > 0) {
+      setStars(cached);
+      return;
+    }
+
+    // Set immediate synthesized fallback stars so preview is instant
+    setStars(generateClusterFallbackStars(selectedPreset));
+    setIsLoadingStars(true);
+
+    fetchTargetStars(client, selectedPreset.id, 1000)
+      .then((liveStars) => {
+        if (!cancelled && liveStars && liveStars.length > 0) {
+          setStars(liveStars);
+        }
+      })
+      .catch((err) => {
+        console.warn('Live Gaia fetch failed for gallery, using fallback stars:', err);
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsLoadingStars(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [client, selectedPreset]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Use 1800 x 2400 (3:4 ratio, 1/3 scale of 5400x7200) for sharp retina preview
+    canvas.width = 1800;
+    canvas.height = 2400;
+
+    const scale = 1800 / 5400;
+    ctx.save();
+    ctx.scale(scale, scale);
+
+    const starList = stars.length > 0 ? stars : generateClusterFallbackStars(selectedPreset);
+    const tagged = starList.map((star) => ({
+      star,
+      sourceLabel: selectedPreset.shortName,
+    }));
+
+    renderGalleryPosterCanvas({
+      ctx,
+      width: 5400,
+      height: 7200,
+      bounds: HR_BOUNDS,
+      schemeId,
+      stars: tagged,
+      showRadiusLines,
+      primaryPreset: selectedPreset,
+    });
+
+    ctx.restore();
+  }, [selectedPreset, schemeId, showRadiusLines, stars]);
+
+  const handleExport = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    try {
+      await downloadGalleryPoster(selectedPreset, schemeId, { showRadiusLines });
+    } catch (err) {
+      console.error('Failed to export poster:', err);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  return (
+    <div className="app gallery-app">
+      <header className="header">
+        <div className="title-group">
+          <div className="breadcrumb-row">
+            <Link href="/" className="back-grid-link">
+              ← All Clusters Grid ({TARGET_PRESETS.length})
+            </Link>
+            <span className="badge">ESA Gaia DR3 Print Edition</span>
+          </div>
+          <h1>🖼️ Museum Poster Gallery</h1>
+          <p className="subtitle">
+            18×24" Fine-Art H–R Diagram Editions · 300 DPI Museum Print Ready for Etsy, Gelato &amp; Printify
+          </p>
+        </div>
+
+        <div className="toolbar-actions">
+          <Link href={`/chart/${selectedPreset.id}`} className="action-btn">
+            📈 Interactive Star Explorer →
+          </Link>
+          <button
+            type="button"
+            className="action-btn primary"
+            onClick={handleExport}
+            disabled={isExporting}
+            title="Download full 5400×7200 px PNG at 300 DPI for professional printing"
+          >
+            {isExporting ? '⏳ Rendering 300 DPI...' : '📥 Download 18×24" Poster (300 DPI)'}
+          </button>
+        </div>
+      </header>
+
+      <div className="gallery-layout">
+        {/* Left: Wall Display & Framed Canvas */}
+        <div className="gallery-stage">
+          <div className={`gallery-wall ${frameMockup ? 'with-shadow' : ''}`}>
+            <div
+              className={`gallery-frame ${frameMockup ? `frame-${frameStyle}` : 'frame-bare'}`}
+            >
+              {frameMockup && <div className="gallery-mat-bevel" />}
+              <div className="gallery-canvas-wrap">
+                <canvas ref={canvasRef} className="gallery-canvas" />
+                {frameMockup && <div className="gallery-glass-glare" />}
+              </div>
+            </div>
+          </div>
+
+          <div className="gallery-stage-caption">
+            <strong>{selectedPreset.label}</strong>
+            <span>•</span>
+            <span>18 × 24 inches (45.7 × 61.0 cm)</span>
+            <span>•</span>
+            <span>5,400 × 7,200 px @ 300 DPI</span>
+            {isLoadingStars && <span className="gallery-loading-pill">🛰️ Updating Gaia DR3...</span>}
+          </div>
+        </div>
+
+        {/* Right: Controls & Specifications Sidebar */}
+        <aside className="gallery-sidebar">
+          {/* Target Cluster Section */}
+          <div className="gallery-card">
+            <h3 className="gallery-card-title">1. Select Target Cluster</h3>
+            <div className="gallery-hero-pills">
+              {HERO_PRESET_IDS.map((id) => {
+                const p = TARGET_PRESETS.find((x) => x.id === id);
+                if (!p) return null;
+                const active = selectedId === id;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    className={`gallery-pill-btn ${active ? 'active' : ''}`}
+                    onClick={() => setSelectedId(id)}
+                  >
+                    <strong>{p.catalogCode ?? p.shortName}</strong>
+                    <span>{p.shortName}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="gallery-dropdown-wrap">
+              <label htmlFor="cluster-select" className="gallery-label">
+                Or choose any of {TARGET_PRESETS.length} clusters:
+              </label>
+              <select
+                id="cluster-select"
+                value={selectedId}
+                onChange={(e) => setSelectedId(e.target.value as TargetPresetId)}
+                className="select-control gallery-select"
+              >
+                <optgroup label="Hero Bestsellers">
+                  {HERO_PRESET_IDS.map((id) => {
+                    const p = TARGET_PRESETS.find((x) => x.id === id);
+                    if (!p) return null;
+                    return (
+                      <option key={p.id} value={p.id}>
+                        ⭐ {p.label} ({p.age})
+                      </option>
+                    );
+                  })}
+                </optgroup>
+                <optgroup label="Open Star Clusters">
+                  {TARGET_PRESETS.filter(
+                    (p) => p.category === 'Open Cluster' && !HERO_PRESET_IDS.includes(p.id)
+                  ).map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.label} ({p.age})
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="Globular Clusters">
+                  {TARGET_PRESETS.filter(
+                    (p) => p.category === 'Globular Cluster' && !HERO_PRESET_IDS.includes(p.id)
+                  ).map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.label} ({p.age})
+                    </option>
+                  ))}
+                </optgroup>
+              </select>
+            </div>
+          </div>
+
+          {/* Theme & Finish Section */}
+          <div className="gallery-card">
+            <h3 className="gallery-card-title">2. Color Scheme &amp; Print Finish</h3>
+            <div className="gallery-theme-grid">
+              {[
+                {
+                  id: 'blackbody',
+                  name: 'Classic Black',
+                  desc: 'Wikipedia/Powell style on deep pitch black',
+                  badge: '🌑 Bestseller',
+                },
+                {
+                  id: 'print-light',
+                  name: 'Archival Cream',
+                  desc: 'Warm off-white archival museum cotton paper',
+                  badge: '📜 Fine Art',
+                },
+                {
+                  id: 'gold',
+                  name: 'JWST Infrared',
+                  desc: 'Warm deep gold palette inspired by Webb NIRCam',
+                  badge: '✨ Infrared',
+                },
+                {
+                  id: 'ultraviolet',
+                  name: 'Cosmic UV',
+                  desc: 'High-energy ultraviolet & violet-blue glow',
+                  badge: '🔮 Deep Space',
+                },
+              ].map((theme) => {
+                const active = schemeId === theme.id;
+                return (
+                  <button
+                    key={theme.id}
+                    type="button"
+                    className={`gallery-theme-btn ${active ? 'active' : ''}`}
+                    onClick={() => setSchemeId(theme.id as ColorSchemeId)}
+                  >
+                    <div className="theme-btn-top">
+                      <span className="theme-btn-badge">{theme.badge}</span>
+                      <strong>{theme.name}</strong>
+                    </div>
+                    <p className="theme-btn-desc">{theme.desc}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Frame Mockup & Overlays */}
+          <div className="gallery-card">
+            <h3 className="gallery-card-title">3. Display Mockup &amp; Overlays</h3>
+            <div className="gallery-toggles-row">
+              <label className="gallery-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={frameMockup}
+                  onChange={(e) => setFrameMockup(e.target.checked)}
+                />
+                <span>🖼️ Show Gallery Wall Frame</span>
+              </label>
+
+              <label className="gallery-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={showRadiusLines}
+                  onChange={(e) => setShowRadiusLines(e.target.checked)}
+                />
+                <span>📏 Solar Radius Curves (R☉)</span>
+              </label>
+            </div>
+
+            {frameMockup && (
+              <div className="gallery-frame-styles">
+                <span className="gallery-label">Frame Material:</span>
+                <div className="gallery-btn-group">
+                  <button
+                    type="button"
+                    className={`gallery-btn-choice ${frameStyle === 'oak' ? 'active' : ''}`}
+                    onClick={() => setFrameStyle('oak')}
+                  >
+                    🪵 Natural Oak
+                  </button>
+                  <button
+                    type="button"
+                    className={`gallery-btn-choice ${frameStyle === 'black' ? 'active' : ''}`}
+                    onClick={() => setFrameStyle('black')}
+                  >
+                    🖤 Matte Black
+                  </button>
+                  <button
+                    type="button"
+                    className={`gallery-btn-choice ${frameStyle === 'white' ? 'active' : ''}`}
+                    onClick={() => setFrameStyle('white')}
+                  >
+                    🤍 Gallery White
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Master Download Call to Action */}
+          <div className="gallery-card highlight-card">
+            <div className="cta-header">
+              <div>
+                <h3 className="cta-title">📥 Ready for Etsy &amp; Print on Demand</h3>
+                <p className="cta-subtitle">
+                  Outputs 18×24" @ 300 DPI (5,400 × 7,200 px lossless PNG) with zero border trim bleed.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="gallery-download-master-btn"
+              onClick={handleExport}
+              disabled={isExporting}
+            >
+              {isExporting ? '⏳ Rendering 38.8 MP Poster...' : '📥 Download 18×24" Master Poster (300 DPI)'}
+            </button>
+
+            <div className="specs-table">
+              <div className="spec-row">
+                <span className="spec-key">Dimensions</span>
+                <span className="spec-val">18 × 24 inches (45.7 × 61.0 cm)</span>
+              </div>
+              <div className="spec-row">
+                <span className="spec-key">Print Resolution</span>
+                <span className="spec-val">5,400 × 7,200 px (300 DPI / 38.8 Megapixels)</span>
+              </div>
+              <div className="spec-row">
+                <span className="spec-key">Color Profile</span>
+                <span className="spec-val">sRGB · 8-bit Lossless PNG</span>
+              </div>
+              <div className="spec-row">
+                <span className="spec-key">Print Compatibility</span>
+                <span className="spec-val">Gelato, Printify, Prodigi, Giclée</span>
+              </div>
+              <div className="spec-row">
+                <span className="spec-key">Recommended Stock</span>
+                <span className="spec-val">200–250 gsm Heavyweight Museum Matte</span>
+              </div>
+              <div className="spec-row">
+                <span className="spec-key">Attribution &amp; License</span>
+                <span className="spec-val">ESA Gaia DR3 astrometric data · CC BY-SA compatible</span>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   return (
     <Switch>
       <Route path="/" component={HomeCatalogView} />
+      <Route path="/gallery" component={PosterGalleryView} />
       <Route path="/chart/:id" component={ChartView} />
       <Route>
         <HomeCatalogView />
