@@ -6,16 +6,21 @@ import {
   COLOR_SCHEMES,
   computeConstantRadiusCurve,
   computeStarCanvasRadius,
+  downloadGalleryPoster,
   fetchCustomConeStars,
   fetchTargetStars,
   findClosestStarAtPoint,
+  formatPosterTitle,
   generateClusterFallbackStars,
   generateClusterPreviewPoints,
   getGaiaStarExternalUrls,
   getStarPhysicalDetails,
   HR_BOUNDS,
   panHrBounds,
+  POSTER_THEMES,
+  renderFineArtPoster,
   renderGalleryPosterCanvas,
+  type PosterThemeId,
   searchCatalogPresets,
   starToCanvasXY,
   TARGET_PRESETS,
@@ -165,6 +170,35 @@ describe('Expanded Messier & Famous Clusters Catalog + Multi-Select', () => {
     expect(first.logLuminositySolar).not.toBeNull();
     expect(first.teffK).toBeGreaterThan(2000);
     expect(first.spectralClass).not.toBeNull();
+
+    // Verify distinct astrophysics and morphology across different clusters
+    const ngc6231 = TARGET_PRESETS.find((p) => p.id === 'ngc-6231')!; // Ultra-young 12 Myr OB nursery
+    const m67 = TARGET_PRESETS.find((p) => p.id === 'm67')!; // Ancient 4 Gyr open cluster
+    const m13 = TARGET_PRESETS.find((p) => p.id === 'm13')!; // 12 Gyr globular cluster
+    const doubleCluster = TARGET_PRESETS.find((p) => p.id === 'double-cluster')!; // Twin core
+
+    const stars6231 = generateClusterFallbackStars(ngc6231);
+    const starsM67 = generateClusterFallbackStars(m67);
+    const starsM13 = generateClusterFallbackStars(m13);
+    const starsDouble = generateClusterFallbackStars(doubleCluster);
+
+    // NGC 6231 has blazing OB supergiants (M_G < -4)
+    const brightest6231 = Math.min(...stars6231.map((s) => s.absoluteMagG!));
+    expect(brightest6231).toBeLessThan(-3.5);
+
+    // M67 is ancient: turnoff is faint (M_G ~ 3.8) and brightest giants rarely exceed M_G ~ -1
+    const brightestM67 = Math.min(...starsM67.map((s) => s.absoluteMagG!));
+    expect(brightestM67).toBeGreaterThan(brightest6231 + 2.5);
+
+    // M13 Globular cluster has horizontal branch stars (M_G ~ 0.5 across blue-yellow colors)
+    const hbStars = starsM13.filter((s) => s.absoluteMagG! >= 0.2 && s.absoluteMagG! <= 1.0 && s.bpRp! < 0.3);
+    expect(hbStars.length).toBeGreaterThan(5);
+
+    // Double Cluster has stars split between two distinct cores
+    const westStars = starsDouble.filter((s) => s.ra < doubleCluster.cone!.ra);
+    const eastStars = starsDouble.filter((s) => s.ra > doubleCluster.cone!.ra);
+    expect(westStars.length).toBeGreaterThan(50);
+    expect(eastStars.length).toBeGreaterThan(50);
   });
 
   it('computes constant-radius Stefan-Boltzmann curves', () => {
@@ -326,5 +360,138 @@ describe('fetchTargetStars Live Dispatch & Local Caching', () => {
       expect.any(Number),
       expect.any(Number)
     );
+  });
+
+  it('handles downloadGalleryPoster safely in browser or headless environments', async () => {
+    const pleiades = TARGET_PRESETS.find((p) => p.id === 'pleiades')!;
+    // Should resolve cleanly without unhandled rejection
+    await expect(downloadGalleryPoster(pleiades, 'blackbody')).resolves.toBeUndefined();
+  });
+
+  it('formats clean, non-redundant poster titles without duplicating catalog codes', () => {
+    const pleiades = TARGET_PRESETS.find((p) => p.id === 'pleiades')!;
+    expect(formatPosterTitle(pleiades)).toBe('M45 · PLEIADES');
+
+    const m13 = TARGET_PRESETS.find((p) => p.id === 'm13')!;
+    expect(formatPosterTitle(m13)).toBe('M13 · HERCULES');
+
+    const doubleCluster = TARGET_PRESETS.find((p) => p.id === 'double-cluster')!;
+    expect(formatPosterTitle(doubleCluster)).toBe('NGC 869/884 · DOUBLE CLUSTER');
+
+    const m67 = TARGET_PRESETS.find((p) => p.id === 'm67')!;
+    expect(formatPosterTitle(m67)).toBe('M67');
+  });
+
+  describe('3 Distinct Museum Fine-Art Poster Themes', () => {
+    const createMockCtx = () =>
+      ({
+        fillRect: vi.fn(),
+        fillText: vi.fn(),
+        strokeRect: vi.fn(),
+        beginPath: vi.fn(),
+        moveTo: vi.fn(),
+        lineTo: vi.fn(),
+        bezierCurveTo: vi.fn(),
+        quadraticCurveTo: vi.fn(),
+        closePath: vi.fn(),
+        stroke: vi.fn(),
+        arc: vi.fn(),
+        fill: vi.fn(),
+        save: vi.fn(),
+        restore: vi.fn(),
+        translate: vi.fn(),
+        rotate: vi.fn(),
+        clip: vi.fn(),
+        rect: vi.fn(),
+        setLineDash: vi.fn(),
+        measureText: vi.fn(() => ({ width: 120 })),
+        createLinearGradient: vi.fn(() => ({ addColorStop: vi.fn() })),
+        createRadialGradient: vi.fn(() => ({ addColorStop: vi.fn() })),
+      } as unknown as CanvasRenderingContext2D);
+
+    const testPreset = TARGET_PRESETS.find((p) => p.id === 'ngc-6231') || TARGET_PRESETS[0];
+    const testStars = [{ star: sampleStar, sourceLabel: testPreset.shortName }];
+
+    it('defines the three requested themes with correct visual metadata', () => {
+      const themes = Object.keys(POSTER_THEMES) as PosterThemeId[];
+      expect(themes).toEqual(['two-maps', 'star-quilt', 'night-fall']);
+
+      expect(POSTER_THEMES['two-maps'].name).toBe('Two Maps');
+      expect(POSTER_THEMES['two-maps'].isLight).toBe(false);
+
+      expect(POSTER_THEMES['star-quilt'].name).toBe('Star Quilt');
+      expect(POSTER_THEMES['star-quilt'].isLight).toBe(true);
+
+      expect(POSTER_THEMES['night-fall'].name).toBe('Night Fall');
+      expect(POSTER_THEMES['night-fall'].isLight).toBe(false);
+    });
+
+    it('renders Two Maps poster with sky disc, diagram box and connecting strands', () => {
+      const ctx = createMockCtx();
+      renderFineArtPoster({
+        ctx,
+        width: 5400,
+        height: 7200,
+        bounds: HR_BOUNDS,
+        themeId: 'two-maps',
+        stars: testStars,
+        primaryPreset: testPreset,
+      });
+
+      // Background fill
+      expect(ctx.fillRect).toHaveBeenCalledWith(0, 0, 5400, 7200);
+      // Sky disc and stars drawn with arc
+      expect(ctx.arc).toHaveBeenCalled();
+      // Connecting bezier curves
+      expect(ctx.bezierCurveTo).toHaveBeenCalled();
+      // Editorial typography with cluster title
+      expect(ctx.fillText).toHaveBeenCalledWith(
+        formatPosterTitle(testPreset),
+        expect.any(Number),
+        expect.any(Number)
+      );
+    });
+
+    it('renders Star Quilt poster on archival cream with stitched patchwork tiles', () => {
+      const ctx = createMockCtx();
+      renderFineArtPoster({
+        ctx,
+        width: 5400,
+        height: 7200,
+        bounds: HR_BOUNDS,
+        themeId: 'star-quilt',
+        stars: testStars,
+        primaryPreset: testPreset,
+      });
+
+      // Archival cream background
+      expect(ctx.fillRect).toHaveBeenCalledWith(0, 0, 5400, 7200);
+      // Dashed stitching lines for quilt patches
+      expect(ctx.setLineDash).toHaveBeenCalledWith([8, 6]);
+      // Prominent cluster title
+      expect(ctx.fillText).toHaveBeenCalledWith(
+        formatPosterTitle(testPreset),
+        expect.any(Number),
+        expect.any(Number)
+      );
+    });
+
+    it('renders Night Fall poster with frameless cosmic flowing strands', () => {
+      const ctx = createMockCtx();
+      renderFineArtPoster({
+        ctx,
+        width: 5400,
+        height: 7200,
+        bounds: HR_BOUNDS,
+        themeId: 'night-fall',
+        stars: testStars,
+        primaryPreset: testPreset,
+      });
+
+      expect(ctx.fillRect).toHaveBeenCalledWith(0, 0, 5400, 7200);
+      // Flowing luminous strands
+      expect(ctx.bezierCurveTo).toHaveBeenCalled();
+      expect(ctx.arc).toHaveBeenCalled();
+    });
   });
 });

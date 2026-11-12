@@ -1,4 +1,5 @@
 import { bpRpToEffectiveTempK, bpRpToSpectralClass, formatDms, formatHms } from '@skyscout/core';
+import { NasaClient, type TwoMassStar } from '@skyscout/nasa-client';
 import type {
   GaiaClient,
   GaiaConeSearchOptions,
@@ -199,7 +200,7 @@ export const TARGET_PRESETS: TargetPreset[] = [
   {
     id: 'm6',
     label: 'Butterfly Cluster (Messier 6 · NGC 6405)',
-    shortName: 'M6 Butterfly',
+    shortName: 'Butterfly',
     catalogCode: 'M6',
     constellation: 'Scorpius',
     category: 'Open Cluster',
@@ -219,7 +220,7 @@ export const TARGET_PRESETS: TargetPreset[] = [
   {
     id: 'pleiades',
     label: 'Pleiades (M45 · Seven Sisters)',
-    shortName: 'M45 Pleiades',
+    shortName: 'Pleiades',
     catalogCode: 'M45',
     constellation: 'Taurus',
     category: 'Open Cluster',
@@ -259,7 +260,7 @@ export const TARGET_PRESETS: TargetPreset[] = [
   {
     id: 'm7',
     label: 'Ptolemy Cluster (Messier 7 · NGC 6475)',
-    shortName: 'M7 Ptolemy',
+    shortName: 'Ptolemy',
     catalogCode: 'M7',
     constellation: 'Scorpius',
     category: 'Open Cluster',
@@ -279,7 +280,7 @@ export const TARGET_PRESETS: TargetPreset[] = [
   {
     id: 'm11',
     label: 'Wild Duck Cluster (M11 · NGC 6705)',
-    shortName: 'M11 Wild Duck',
+    shortName: 'Wild Duck',
     catalogCode: 'M11',
     constellation: 'Scutum',
     category: 'Open Cluster',
@@ -299,7 +300,7 @@ export const TARGET_PRESETS: TargetPreset[] = [
   {
     id: 'm38',
     label: 'Starfish Cluster (Messier 38 · NGC 1912)',
-    shortName: 'M38 Starfish',
+    shortName: 'Starfish',
     catalogCode: 'M38',
     constellation: 'Auriga',
     category: 'Open Cluster',
@@ -419,7 +420,7 @@ export const TARGET_PRESETS: TargetPreset[] = [
   {
     id: 'praesepe',
     label: 'Beehive Cluster (M44 · Praesepe)',
-    shortName: 'M44 Beehive',
+    shortName: 'Beehive',
     catalogCode: 'M44',
     constellation: 'Cancer',
     category: 'Open Cluster',
@@ -520,7 +521,7 @@ export const TARGET_PRESETS: TargetPreset[] = [
   {
     id: 'm22',
     label: 'Great Sagittarius Cluster (Messier 22 · NGC 6656)',
-    shortName: 'M22 Sagittarius',
+    shortName: 'Sagittarius',
     catalogCode: 'M22',
     constellation: 'Sagittarius',
     category: 'Globular Cluster',
@@ -600,7 +601,7 @@ export const TARGET_PRESETS: TargetPreset[] = [
   {
     id: 'm12',
     label: 'Gumball Globular (Messier 12 · NGC 6218)',
-    shortName: 'M12 Gumball',
+    shortName: 'Gumball',
     catalogCode: 'M12',
     constellation: 'Ophiuchus',
     category: 'Globular Cluster',
@@ -620,7 +621,7 @@ export const TARGET_PRESETS: TargetPreset[] = [
   {
     id: 'm13',
     label: 'Great Hercules Cluster (M13 · NGC 6205)',
-    shortName: 'M13 Hercules',
+    shortName: 'Hercules',
     catalogCode: 'M13',
     constellation: 'Hercules',
     category: 'Globular Cluster',
@@ -700,7 +701,7 @@ export const TARGET_PRESETS: TargetPreset[] = [
   {
     id: 'm15',
     label: 'Great Pegasus Cluster (Messier 15 · NGC 7078)',
-    shortName: 'M15 Pegasus',
+    shortName: 'Pegasus',
     catalogCode: 'M15',
     constellation: 'Pegasus',
     category: 'Globular Cluster',
@@ -718,6 +719,168 @@ export const TARGET_PRESETS: TargetPreset[] = [
     },
   },
 ];
+
+export const NASA_CACHE_KEY_PREFIX = 'starplot:nasa:v1:';
+const nasaMemoryCache = new Map<string, GaiaStar[]>();
+const nasaInFlightRequests = new Map<string, Promise<GaiaStar[]>>();
+
+function getNasaCacheKey(targetId: TargetPresetId, limit: number): string {
+  return `${NASA_CACHE_KEY_PREFIX}${targetId}:${limit}`;
+}
+
+export function getCachedNasaStars(
+  targetId: TargetPresetId,
+  limit: number = 1000,
+  storage?: Pick<Storage, 'getItem'>
+): GaiaStar[] | null {
+  const key = getNasaCacheKey(targetId, limit);
+  if (nasaMemoryCache.has(key)) {
+    return nasaMemoryCache.get(key)!;
+  }
+
+  const store = storage ?? (typeof globalThis !== 'undefined' ? globalThis.localStorage : undefined);
+  if (!store) return null;
+
+  try {
+    const raw = store.getItem(key) ?? (limit !== 1000 ? store.getItem(getNasaCacheKey(targetId, 1000)) : null);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as GaiaStar[];
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      nasaMemoryCache.set(key, parsed);
+      return parsed;
+    }
+  } catch {
+    // Ignore storage read errors
+  }
+  return null;
+}
+
+export function setCachedNasaStars(
+  targetId: TargetPresetId,
+  limit: number,
+  stars: GaiaStar[],
+  storage?: Pick<Storage, 'setItem'> & Partial<Pick<Storage, 'removeItem'>>
+): void {
+  const key = getNasaCacheKey(targetId, limit);
+  nasaMemoryCache.set(key, stars);
+
+  const store = storage ?? (typeof globalThis !== 'undefined' ? globalThis.localStorage : undefined);
+  if (!store) return;
+
+  const serialized = JSON.stringify(stars);
+  try {
+    store.setItem(key, serialized);
+  } catch {
+    // Quota eviction
+    if (typeof store.removeItem === 'function') {
+      for (const p of TARGET_PRESETS) {
+        if (p.id === targetId) continue;
+        try {
+          store.removeItem(getNasaCacheKey(p.id, limit));
+          store.removeItem(getNasaCacheKey(p.id, 1000));
+          store.setItem(key, serialized);
+          break;
+        } catch {
+          // Keep evicting
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Fetches stars for a cluster using the NASA 2MASS All-Sky Point Source Catalog via `@skyscout/nasa-client`,
+ * with in-memory and persistent `localStorage` heavy caching.
+ */
+export async function fetchNasaClusterStars(
+  client: NasaClient,
+  targetId: TargetPresetId,
+  limit: number = 1000,
+  storage?: Pick<Storage, 'getItem' | 'setItem'> & Partial<Pick<Storage, 'removeItem'>>
+): Promise<GaiaStar[]> {
+  const cached = getCachedNasaStars(targetId, limit, storage);
+  if (cached && cached.length > 0) {
+    return cached;
+  }
+
+  const preset = TARGET_PRESETS.find((p) => p.id === targetId);
+  if (!preset) return [];
+
+  const key = getNasaCacheKey(targetId, limit);
+  const existingInFlight = nasaInFlightRequests.get(key);
+  if (existingInFlight) {
+    return existingInFlight;
+  }
+
+  const requestPromise = (async (): Promise<GaiaStar[]> => {
+    try {
+      const ra = preset.cone?.ra ?? 56.75;
+      const dec = preset.cone?.dec ?? 24.12;
+      const radiusDeg = Math.min(1.5, Math.max(0.2, preset.cone?.radiusDeg ?? 0.8));
+      const distPc = preset.distancePcApprox || 150;
+      const distMod = 5 * Math.log10(distPc) - 5;
+
+      const nasaStars = await client.coneSearch2Mass({
+        ra,
+        dec,
+        radiusDeg,
+        limit,
+      });
+
+      if (nasaStars.length === 0) {
+        const fallback = generateClusterFallbackStars(preset);
+        setCachedNasaStars(targetId, limit, fallback, storage);
+        return fallback;
+      }
+
+      const stars: GaiaStar[] = nasaStars.map((s, idx) => {
+        const j = s.jMag ?? 10;
+        const k = s.kMag ?? j;
+        const jMinusK = s.jMinusK ?? 0.4;
+        const bpRp = Number((jMinusK * 2.3).toFixed(3));
+        const absMag = Number((k - distMod).toFixed(3));
+        const teffK = bpRpToEffectiveTempK(bpRp);
+
+        return {
+          sourceId: s.designation || `nasa-${preset.id}-${idx + 1}`,
+          ra: s.ra,
+          dec: s.dec,
+          parallaxMas: Number((1000 / distPc).toFixed(3)),
+          parallaxErrorMas: 0.05,
+          parallaxSnr: 25,
+          pmRaMasYr: 0,
+          pmDecMasYr: 0,
+          radialVelocityKmS: null,
+          magG: j,
+          magBp: j,
+          magRp: k,
+          bpRp,
+          teffK: teffK ? Math.round(teffK) : null,
+          extinctionAg: 0.05,
+          reddeningBpRp: 0.02,
+          distancePc: distPc,
+          distanceLy: Number((distPc * 3.26156).toFixed(1)),
+          absoluteMagG: absMag,
+          logLuminositySolar: Number(((4.74 - absMag) / 2.5).toFixed(3)),
+          spectralClass: bpRpToSpectralClass(bpRp),
+        };
+      });
+
+      setCachedNasaStars(targetId, limit, stars, storage);
+      return stars;
+    } catch (err) {
+      console.warn(`NASA query failed for ${preset.label}, falling back to synthesized stars:`, err);
+      const fallback = generateClusterFallbackStars(preset);
+      setCachedNasaStars(targetId, limit, fallback, storage);
+      return fallback;
+    } finally {
+      nasaInFlightRequests.delete(key);
+    }
+  })();
+
+  nasaInFlightRequests.set(key, requestPromise);
+  return requestPromise;
+}
 
 export const CACHE_KEY_PREFIX = 'starplot:gaia:v1:';
 
@@ -1370,6 +1533,17 @@ export async function fetchCustomConeStars(
  * for a cluster card on the `/` Home Page Grid when the cluster has not yet been fetched into `localStorage`.
  * Ensures all 32 cards on the Home Page Grid render an immediate H–R thumbnail with zero network calls.
  */
+/**
+ * Parses cluster age string (e.g. "~12 Myr", "~115 Myr", "~11.4 Gyr") into numeric Myr.
+ */
+export function parseClusterAgeMyr(ageStr: string): number {
+  const matchGyr = ageStr.match(/([\d.]+)\s*Gyr/i);
+  if (matchGyr) return parseFloat(matchGyr[1]) * 1000;
+  const matchMyr = ageStr.match(/([\d.]+)\s*Myr/i);
+  if (matchMyr) return parseFloat(matchMyr[1]);
+  return 300;
+}
+
 export function generateClusterPreviewPoints(
   preset: TargetPreset
 ): Array<{ bpRp: number; absoluteMagG: number }> {
@@ -1389,40 +1563,40 @@ export function generateClusterPreviewPoints(
   const points: Array<{ bpRp: number; absoluteMagG: number }> = [];
 
   if (preset.category === 'Globular Cluster') {
-    // Turnoff around bpRp ~ 0.65, M_G ~ 3.8 + Steep Red Giant Branch + Blue/Red Horizontal Branch
-    for (let i = 0; i < 95; i++) {
-      // Lower main sequence + turnoff
+    // Globular Cluster (~10–13 Gyr): Subgiant turnoff + Steep RGB + Horizontal Branch
+    for (let i = 0; i < 90; i++) {
+      // Lower main sequence and turnoff at M_G ~ 4.0, bpRp ~ 0.52
       const t = rand();
-      const bpRp = 0.62 + t * 1.1 + (rand() - 0.5) * 0.12;
-      const absMag = 3.8 + t * 5.8 + (rand() - 0.5) * 0.5;
+      const bpRp = 0.52 + t * 1.15 + (rand() - 0.5) * 0.1;
+      const absMag = 4.0 + t * 5.4 + (rand() - 0.5) * 0.45;
       points.push({ bpRp, absoluteMagG: absMag });
     }
-    for (let i = 0; i < 85; i++) {
-      // Steep Red Giant Branch (from subgiant turnoff up to M_G ~ -2.8)
+    for (let i = 0; i < 75; i++) {
+      // Steep Red Giant Branch rising to M_G ~ -2.6
       const t = Math.pow(rand(), 0.85);
-      const bpRp = 0.82 + t * 1.05 + (rand() - 0.5) * 0.1;
-      const absMag = 3.4 - t * 6.0 + (rand() - 0.5) * 0.45;
+      const bpRp = 0.65 + t * 0.95 + (rand() - 0.5) * 0.08;
+      const absMag = 3.6 - t * 6.2 + (rand() - 0.5) * 0.35;
       points.push({ bpRp, absoluteMagG: absMag });
     }
-    for (let i = 0; i < 40; i++) {
-      // Horizontal Branch (M_G ~ +0.5, spanning blue to yellow)
-      const bpRp = -0.1 + rand() * 0.95;
-      const absMag = 0.55 + (rand() - 0.5) * 0.45 + (bpRp < 0.15 ? (0.15 - bpRp) * 2.2 : 0);
+    for (let i = 0; i < 50; i++) {
+      // Distinctive Horizontal Branch (M_G ~ +0.55 across blue to red)
+      const bpRp = -0.2 + rand() * 0.95;
+      const absMag = 0.55 + (rand() - 0.5) * 0.35 + (bpRp < 0.1 ? (0.1 - bpRp) * 2.0 : 0);
       points.push({ bpRp, absoluteMagG: absMag });
     }
     return points;
   }
 
   if (preset.category === 'Solar Volume') {
-    // Full Main Sequence (-0.1 to +3.1) + Red Clump + White Dwarfs
-    for (let i = 0; i < 165; i++) {
+    // Solar 50 pc field: full Main Sequence spine + Red Clump + White Dwarfs
+    for (let i = 0; i < 160; i++) {
       const t = Math.pow(rand(), 0.9);
       const bpRp = -0.05 + t * 3.15 + (rand() - 0.5) * 0.14;
       const absMag = 0.6 + t * 12.2 + (rand() - 0.5) * 0.55;
       points.push({ bpRp, absoluteMagG: absMag });
     }
     for (let i = 0; i < 30; i++) {
-      // Red Clump / Giants
+      // Red Clump giants
       points.push({
         bpRp: 1.05 + (rand() - 0.5) * 0.35,
         absoluteMagG: 0.6 + (rand() - 0.5) * 1.4,
@@ -1439,27 +1613,91 @@ export function generateClusterPreviewPoints(
     return points;
   }
 
-  // Open Cluster: determine turnoff color from age string
-  const isUltraYoung = preset.age.includes('12 ') || preset.age.includes('14 ') || preset.age.includes('16 ') || preset.age.includes('35 ') || preset.age.includes('50 ');
-  const isAncientOpen = preset.age.includes('Gyr');
-  const minBpRp = isUltraYoung ? -0.32 : isAncientOpen ? 0.58 : -0.08;
-  const minMag = isUltraYoung ? -4.2 : isAncientOpen ? 3.2 : 0.2;
+  // Open Cluster: calculate turnoff and evolved stars based on numeric age in Myr
+  const ageMyr = parseClusterAgeMyr(preset.age);
 
-  for (let i = 0; i < 175; i++) {
-    const t = Math.pow(rand(), 0.85);
-    const bpRp = minBpRp + t * (2.65 - minBpRp) + (rand() - 0.5) * 0.1;
-    const absMag = minMag + t * (11.8 - minMag) + (rand() - 0.5) * 0.45;
-    points.push({ bpRp, absoluteMagG: absMag });
-  }
-
-  // Evolved giants / supergiants appropriate for cluster age
-  const giantCount = isAncientOpen ? 38 : isUltraYoung ? 14 : 16;
-  for (let i = 0; i < giantCount; i++) {
-    const t = rand();
-    points.push({
-      bpRp: isAncientOpen ? 0.95 + t * 0.7 : 1.05 + (rand() - 0.5) * 0.45,
-      absoluteMagG: isAncientOpen ? 3.0 - t * 4.2 : isUltraYoung ? -3.5 + (rand() - 0.5) * 2.0 : 0.4 + (rand() - 0.5) * 1.2,
-    });
+  if (ageMyr <= 22) {
+    // Ultra-young OB cluster (~12-16 Myr: NGC 6231, Double Cluster, Jewel Box)
+    // Main sequence extends up to blazing O/B stars M_G ~ -5.5
+    for (let i = 0; i < 170; i++) {
+      const t = Math.pow(rand(), 0.75);
+      const bpRp = -0.35 + t * 2.85 + (rand() - 0.5) * 0.08;
+      const absMag = -5.2 + t * 16.5 + (rand() - 0.5) * 0.45;
+      points.push({ bpRp, absoluteMagG: absMag });
+    }
+    // Luminous blue and red supergiants (e.g. Kappa Crucis in Jewel Box)
+    for (let i = 0; i < 12; i++) {
+      const isRed = rand() > 0.65;
+      points.push({
+        bpRp: isRed ? 1.55 + (rand() - 0.5) * 0.3 : -0.25 + (rand() - 0.5) * 0.15,
+        absoluteMagG: isRed ? -4.8 + (rand() - 0.5) * 1.2 : -5.8 + (rand() - 0.5) * 1.2,
+      });
+    }
+  } else if (ageMyr <= 60) {
+    // Young cluster (~35-50 Myr: IC 2602, Alpha Persei)
+    // Turnoff reaches M_G ~ -2.5, bpRp ~ -0.22
+    for (let i = 0; i < 165; i++) {
+      const t = Math.pow(rand(), 0.8);
+      const bpRp = -0.22 + t * 2.75 + (rand() - 0.5) * 0.08;
+      const absMag = -2.5 + t * 14.0 + (rand() - 0.5) * 0.45;
+      points.push({ bpRp, absoluteMagG: absMag });
+    }
+    // Yellow/orange supergiant giants like Mirfak (Alpha Persei)
+    for (let i = 0; i < 10; i++) {
+      points.push({
+        bpRp: 0.65 + (rand() - 0.5) * 0.4,
+        absoluteMagG: -1.8 + (rand() - 0.5) * 1.2,
+      });
+    }
+  } else if (ageMyr <= 160) {
+    // Pleiades era (~78-150 Myr: M47, M6 Butterfly, Pleiades, M35)
+    // Turnoff at upper Main Sequence M_G ~ -1.0 to 0.0, bpRp ~ -0.15
+    for (let i = 0; i < 165; i++) {
+      const t = Math.pow(rand(), 0.85);
+      const bpRp = -0.15 + t * 2.7 + (rand() - 0.5) * 0.08;
+      const absMag = -0.8 + t * 12.5 + (rand() - 0.5) * 0.4;
+      points.push({ bpRp, absoluteMagG: absMag });
+    }
+    // Prominent giants (like orange giant BM Scorpii in M6 Butterfly)
+    for (let i = 0; i < 12; i++) {
+      points.push({
+        bpRp: 1.2 + (rand() - 0.5) * 0.35,
+        absoluteMagG: -0.5 + (rand() - 0.5) * 1.0,
+      });
+    }
+  } else if (ageMyr <= 900) {
+    // Intermediate clusters (~200-800 Myr: M7, M11 Wild Duck, Hyades, Praesepe, M37, M36, M38)
+    // Turnoff at A/F stars M_G ~ 1.2, bpRp ~ 0.22
+    for (let i = 0; i < 165; i++) {
+      const t = Math.pow(rand(), 0.85);
+      const bpRp = 0.22 + t * 2.35 + (rand() - 0.5) * 0.08;
+      const absMag = 1.2 + t * 10.5 + (rand() - 0.5) * 0.4;
+      points.push({ bpRp, absoluteMagG: absMag });
+    }
+    // Distinctive Red Clump helium-burning giants (M_G ~ 0.5, bpRp ~ 1.05)
+    const rcCount = preset.id === 'm11' ? 24 : 16;
+    for (let i = 0; i < rcCount; i++) {
+      points.push({
+        bpRp: 1.05 + (rand() - 0.5) * 0.25,
+        absoluteMagG: 0.5 + (rand() - 0.5) * 0.6,
+      });
+    }
+  } else {
+    // Ancient Open Clusters (M67 ~4 Gyr, NGC 188 ~7 Gyr)
+    // Turnoff near solar temperature M_G ~ 3.8, bpRp ~ 0.58 + Subgiant hook & RGB
+    for (let i = 0; i < 120; i++) {
+      const t = Math.pow(rand(), 0.85);
+      const bpRp = 0.58 + t * 2.05 + (rand() - 0.5) * 0.08;
+      const absMag = 3.8 + t * 8.2 + (rand() - 0.5) * 0.4;
+      points.push({ bpRp, absoluteMagG: absMag });
+    }
+    // Subgiant branch & Red Giant Branch
+    for (let i = 0; i < 40; i++) {
+      const t = Math.pow(rand(), 0.85);
+      const bpRp = 0.72 + t * 0.75 + (rand() - 0.5) * 0.08;
+      const absMag = 3.4 - t * 4.2 + (rand() - 0.5) * 0.4;
+      points.push({ bpRp, absoluteMagG: absMag });
+    }
   }
 
   return points;
@@ -1487,10 +1725,10 @@ export function generateClusterFallbackStars(preset: TargetPreset): GaiaStar[] {
 
   for (const pt of previewPoints) {
     points.push(pt);
-    // Add a secondary star with slight photometric noise to create a dense ~400+ star field
+    // Add a secondary star with slight photometric noise to create a dense ~350+ star field
     points.push({
-      bpRp: pt.bpRp + (rand() - 0.5) * 0.05,
-      absoluteMagG: pt.absoluteMagG + (rand() - 0.5) * 0.18,
+      bpRp: pt.bpRp + (rand() - 0.5) * 0.04,
+      absoluteMagG: pt.absoluteMagG + (rand() - 0.5) * 0.15,
     });
   }
 
@@ -1500,22 +1738,78 @@ export function generateClusterFallbackStars(preset: TargetPreset): GaiaStar[] {
 
   const baseRa = preset.cone?.ra ?? 56.75;
   const baseDec = preset.cone?.dec ?? 24.12;
-  const radiusDeg = preset.cone?.radiusDeg ?? 1.5;
+  const radiusDeg = Math.max(0.2, preset.cone?.radiusDeg ?? 1.2);
+  const cosDec = Math.max(0.1, Math.cos((baseDec * Math.PI) / 180));
+
+  // Pleiades iconic 7 bright asterism star offsets (Alcyone, Atlas, Electra, Maia, Merope, Taygeta, Pleione)
+  const pleiadesAsterism = [
+    { dra: 0.12, ddec: 0.08, magOffset: -4.5 },
+    { dra: -0.22, ddec: -0.05, magOffset: -4.2 },
+    { dra: 0.35, ddec: 0.12, magOffset: -4.0 },
+    { dra: 0.18, ddec: 0.28, magOffset: -3.8 },
+    { dra: 0.05, ddec: -0.15, magOffset: -3.7 },
+    { dra: 0.26, ddec: 0.32, magOffset: -3.5 },
+    { dra: -0.25, ddec: 0.02, magOffset: -3.2 },
+  ];
 
   return points.map((pt, idx) => {
     const plx = basePlx * (1 + (rand() - 0.5) * 0.05);
-    const photG = pt.absoluteMagG + distMod + (rand() - 0.5) * 0.08;
+    let photG = pt.absoluteMagG + distMod + (rand() - 0.5) * 0.08;
     const roundedDistPc = Math.round(distPc);
     const distLy = Number((roundedDistPc * 3.26156).toFixed(1));
     const logLum = Number(((4.74 - pt.absoluteMagG) / 2.5).toFixed(3));
     const teffK = bpRpToEffectiveTempK(pt.bpRp);
+
+    let ra = baseRa;
+    let dec = baseDec;
+
+    if (preset.id === 'double-cluster') {
+      // Iconic twin cores of NGC 869 (west) and NGC 884 (east) separated by ~0.45 deg
+      const isEast = idx % 2 === 0;
+      const coreOffsetRa = isEast ? 0.22 : -0.22;
+      const angle = rand() * 2 * Math.PI;
+      const r = Math.pow(rand(), 1.5) * (radiusDeg * 0.45);
+      ra = baseRa + coreOffsetRa + (r * Math.cos(angle)) / cosDec;
+      dec = baseDec + r * Math.sin(angle);
+    } else if (preset.category === 'Globular Cluster') {
+      // King / Plummer sphere concentration: stars packed heavily into the central core
+      const angle = rand() * 2 * Math.PI;
+      const rFrac = Math.pow(rand(), 2.2); // Core-heavy concentration
+      const r = rFrac * radiusDeg;
+      ra = baseRa + (r * Math.cos(angle)) / cosDec;
+      dec = baseDec + r * Math.sin(angle);
+    } else if (preset.id === 'pleiades' && idx < pleiadesAsterism.length) {
+      // Seven Sisters asterism
+      const ast = pleiadesAsterism[idx];
+      ra = baseRa + ast.dra;
+      dec = baseDec + ast.ddec;
+      photG += ast.magOffset;
+    } else if (preset.id === 'm11') {
+      // Wild Duck iconic V-wedge flock shape
+      const t = rand();
+      const arm = rand() > 0.5 ? 1 : -1;
+      const dra = (t * 0.7 + (rand() - 0.5) * 0.15) * radiusDeg * arm;
+      const ddec = (t * 0.5 + (rand() - 0.5) * 0.15) * radiusDeg;
+      ra = baseRa + dra / cosDec;
+      dec = baseDec - ddec;
+    } else if (preset.id === 'm6') {
+      // Butterfly Cluster twin wings
+      const wing = rand() > 0.5 ? 1 : -1;
+      const angle = (rand() - 0.5) * 1.2 + (wing > 0 ? 0 : Math.PI);
+      const r = (0.2 + 0.8 * Math.sqrt(rand())) * radiusDeg;
+      ra = baseRa + (r * Math.cos(angle)) / cosDec;
+      dec = baseDec + r * Math.sin(angle);
+    } else {
+      // Gaussian open cluster core dispersal
+      const angle = rand() * 2 * Math.PI;
+      const r = Math.pow(rand(), 1.4) * radiusDeg;
+      ra = baseRa + (r * Math.cos(angle)) / cosDec;
+      dec = baseDec + r * Math.sin(angle);
+    }
+
+    dec = Math.max(-90, Math.min(90, dec));
     const bp = photG + pt.bpRp * 0.5;
     const rp = photG - pt.bpRp * 0.5;
-
-    const angle = rand() * 2 * Math.PI;
-    const r = Math.sqrt(rand()) * radiusDeg;
-    const ra = baseRa + (r * Math.cos(angle)) / Math.max(0.1, Math.cos((baseDec * Math.PI) / 180));
-    const dec = Math.max(-90, Math.min(90, baseDec + r * Math.sin(angle)));
 
     return {
       sourceId: `synth-${preset.id}-${idx + 1}`,
@@ -1544,7 +1838,617 @@ export function generateClusterFallbackStars(preset: TargetPreset): GaiaStar[] {
 }
 
 /**
- * Renders an 18" × 24" at 300 DPI (5400 × 7200 px) Portrait Gallery Poster
+ * Formats a clean, non-redundant museum poster title for a cluster preset,
+ * preventing duplicate catalog codes (e.g. avoids "M45 · M45 PLEIADES" -> "M45 · PLEIADES").
+ */
+export function formatPosterTitle(preset: TargetPreset): string {
+  const code = preset.catalogCode?.trim();
+  let name = preset.shortName?.trim();
+
+  // If shortName starts with catalogCode (e.g. "M45 Pleiades" starts with "M45"), strip it
+  if (code && name && name.toLowerCase().startsWith(code.toLowerCase())) {
+    name = name.slice(code.length).replace(/^[\s·\-\:]+/, '').trim();
+  }
+
+  if (code && name && code.toLowerCase() !== name.toLowerCase()) {
+    return `${code.toUpperCase()} · ${name.toUpperCase()}`;
+  }
+
+  if (name) {
+    return name.toUpperCase();
+  }
+
+  return (code ?? 'HERTZSPRUNG–RUSSELL DIAGRAM').toUpperCase();
+}
+
+export type PosterThemeId = 'two-maps' | 'star-quilt' | 'night-fall';
+
+export interface PosterThemeInfo {
+  id: PosterThemeId;
+  name: string;
+  badge: string;
+  subtitle: string;
+  bg: string;
+  isLight?: boolean;
+}
+
+export const POSTER_THEMES: Record<PosterThemeId, PosterThemeInfo> = {
+  'two-maps': {
+    id: 'two-maps',
+    name: 'Two Maps',
+    badge: '🌌 Two Maps',
+    subtitle: 'Where the stars are vs what they are, connected by luminous strands',
+    bg: '#030509',
+    isLight: false,
+  },
+  'star-quilt': {
+    id: 'star-quilt',
+    name: 'Star Quilt',
+    badge: '🧵 Star Quilt',
+    subtitle: 'Graphic binned patchwork with dashed stitching, one fabric per spectral class',
+    bg: '#f7f4ed',
+    isLight: true,
+  },
+  'night-fall': {
+    id: 'night-fall',
+    name: 'Night Fall',
+    badge: '🌊 Cascade',
+    subtitle: 'Frameless cosmic cascade streaming from sky directly into diagram',
+    bg: '#010306',
+    isLight: false,
+  },
+};
+
+export function drawRoundedRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number
+): void {
+  if (typeof (ctx as unknown as { roundRect?: Function }).roundRect === 'function') {
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, r);
+  } else {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+}
+
+/**
+ * Theme 1: "Two Maps"
+ * Circular celestial sky disc on top, H–R diagram box on bottom, connected by luminous bezier threads.
+ */
+export function renderTwoMapsPoster(options: {
+  ctx: CanvasRenderingContext2D;
+  width?: number;
+  height?: number;
+  bounds: HrBounds;
+  stars: Array<{ star: GaiaStar; sourceLabel: string }>;
+  primaryPreset?: TargetPreset | null;
+}): void {
+  const { ctx, width = 5400, height = 7200, bounds, stars, primaryPreset } = options;
+
+  // 1. Pitch black background
+  ctx.fillStyle = '#030509';
+  ctx.fillRect(0, 0, width, height);
+
+  const centerX = width / 2;
+  const preset = primaryPreset ?? TARGET_PRESETS[0];
+
+  // 2. Top Sky Disc ("WHERE THE STARS ARE")
+  const skyCenter = { x: centerX, y: 1850 };
+  const skyRadius = 1150;
+
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.arc(skyCenter.x, skyCenter.y, skyRadius, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(skyCenter.x, skyCenter.y, skyRadius * 0.5, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(skyCenter.x - 20, skyCenter.y);
+  ctx.lineTo(skyCenter.x + 20, skyCenter.y);
+  ctx.moveTo(skyCenter.x, skyCenter.y - 20);
+  ctx.lineTo(skyCenter.x, skyCenter.y + 20);
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+  ctx.stroke();
+
+  ctx.font = '500 32px "JetBrains Mono", monospace';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+  ctx.textAlign = 'center';
+  ctx.fillText('THE SKY — WHERE THE STARS ARE', centerX, 3180);
+
+  // 3. Bottom H–R Diagram Box ("WHAT THE STARS ARE")
+  const hrBox: PlotBox = {
+    left: 650,
+    top: 3680,
+    width: 4100,
+    height: 2320,
+  };
+
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+  ctx.lineWidth = 2.5;
+  ctx.strokeRect(hrBox.left, hrBox.top, hrBox.width, hrBox.height);
+
+  ctx.font = '500 32px "JetBrains Mono", monospace';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+  ctx.textAlign = 'center';
+  ctx.fillText('THE DIAGRAM — WHAT THE STARS ARE', centerX, 3560);
+
+  // Left Y-axis Logarithmic Luminosity Decades
+  const lumTicks = [
+    { label: '10⁵', mag: -7.76 },
+    { label: '10⁴', mag: -5.26 },
+    { label: '10³', mag: -2.76 },
+    { label: '10²', mag: -0.26 },
+    { label: '10¹', mag: 2.24 },
+    { label: '10⁰', mag: 4.74 },
+    { label: '10⁻¹', mag: 7.24 },
+    { label: '10⁻²', mag: 9.74 },
+  ];
+
+  ctx.font = '400 30px "JetBrains Mono", monospace';
+  ctx.textAlign = 'right';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+  ctx.lineWidth = 2;
+
+  for (const tick of lumTicks) {
+    const yNorm = (tick.mag - bounds.minAbsMag) / (bounds.maxAbsMag - bounds.minAbsMag);
+    if (yNorm >= 0 && yNorm <= 1) {
+      const y = hrBox.top + yNorm * hrBox.height;
+      ctx.fillText(tick.label, hrBox.left - 25, y + 10);
+      ctx.beginPath();
+      ctx.moveTo(hrBox.left, y);
+      ctx.lineTo(hrBox.left + 15, y);
+      ctx.stroke();
+    }
+  }
+
+  // Bottom X-axis Spectral Classes (O B A F G K M)
+  const spectralLetters = [
+    { cls: 'O', bpRp: -0.42, color: '#60a5fa' },
+    { cls: 'B', bpRp: -0.15, color: '#93c5fd' },
+    { cls: 'A', bpRp: 0.12, color: '#f8fafc' },
+    { cls: 'F', bpRp: 0.45, color: '#fef08a' },
+    { cls: 'G', bpRp: 0.82, color: '#facc15' },
+    { cls: 'K', bpRp: 1.32, color: '#fb923c' },
+    { cls: 'M', bpRp: 2.15, color: '#ef4444' },
+  ];
+
+  ctx.font = '700 52px "Inter", sans-serif';
+  ctx.textAlign = 'center';
+  for (const item of spectralLetters) {
+    const xNorm = (item.bpRp - bounds.minBpRp) / (bounds.maxBpRp - bounds.minBpRp);
+    if (xNorm >= 0 && xNorm <= 1) {
+      const x = hrBox.left + xNorm * hrBox.width;
+      ctx.fillStyle = item.color;
+      ctx.fillText(item.cls, x, hrBox.top + hrBox.height + 70);
+    }
+  }
+
+  // 4. Coordinates projection & Connecting Strands
+  const baseRa = preset.cone?.ra ?? 56.75;
+  const baseDec = preset.cone?.dec ?? 24.12;
+  const radiusDeg = Math.max(0.2, preset.cone?.radiusDeg ?? 1.2);
+  const cosDec = Math.cos((baseDec * Math.PI) / 180);
+
+  const starData = stars
+    .map(({ star }) => {
+      const bpRp = star.bpRp ?? 0.8;
+      const absMag = star.absoluteMagG ?? 4.5;
+      const dx = ((star.ra - baseRa) * cosDec) / radiusDeg;
+      const dy = (star.dec - baseDec) / radiusDeg;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const rClamped = dist <= 1 ? dist : 1 / (1 + (dist - 1) * 0.4);
+      const angle = Math.atan2(dy, dx);
+
+      const skyX = skyCenter.x + Math.cos(angle) * rClamped * (skyRadius - 40);
+      const skyY = skyCenter.y - Math.sin(angle) * rClamped * (skyRadius - 40);
+
+      const xNorm = (bpRp - bounds.minBpRp) / (bounds.maxBpRp - bounds.minBpRp);
+      const yNorm = (absMag - bounds.minAbsMag) / (bounds.maxAbsMag - bounds.minAbsMag);
+      const hrX = hrBox.left + xNorm * hrBox.width;
+      const hrY = hrBox.top + yNorm * hrBox.height;
+
+      const hex = bpRpToStarHexColor(bpRp, 'blackbody');
+      const brightnessNorm = Math.max(0, Math.min(1, (12 - absMag) / 16));
+
+      return { star, skyX, skyY, hrX, hrY, hex, brightnessNorm, absMag };
+    })
+    .sort((a, b) => b.absMag - a.absMag);
+
+  for (const item of starData) {
+    const alpha = Math.min(0.35, 0.08 + item.brightnessNorm * 0.25);
+    const lineWidth = Math.max(1.2, 1.0 + item.brightnessNorm * 2.2);
+
+    ctx.save();
+    ctx.strokeStyle = item.hex;
+    ctx.globalAlpha = alpha;
+    ctx.lineWidth = lineWidth;
+
+    ctx.beginPath();
+    ctx.moveTo(item.skyX, item.skyY);
+    const cp1Y = item.skyY + (item.hrY - item.skyY) * 0.45;
+    const cp2Y = item.hrY - (item.hrY - item.skyY) * 0.45;
+    ctx.bezierCurveTo(item.skyX, cp1Y, item.hrX, cp2Y, item.hrX, item.hrY);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  for (const item of starData) {
+    const dotRadius = Math.max(2.2, 2.0 + item.brightnessNorm * 5.0);
+
+    ctx.fillStyle = item.hex;
+    ctx.beginPath();
+    ctx.arc(item.skyX, item.skyY, dotRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(item.hrX, item.hrY, dotRadius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  const distStr =
+    preset.distancePcApprox >= 1000
+      ? `${(preset.distancePcApprox / 1000).toFixed(1)} kpc`
+      : `${preset.distancePcApprox} pc`;
+
+  ctx.textAlign = 'left';
+  ctx.font = '700 108px "Inter", sans-serif';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(formatPosterTitle(preset), hrBox.left, 6520);
+
+  ctx.font = '400 32px "JetBrains Mono", monospace';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+  ctx.fillText(
+    `${preset.category.toUpperCase()} · ${preset.constellation?.toUpperCase() ?? 'MILKY WAY'} · ~${distStr.toUpperCase()} · ~${preset.age.toUpperCase()}`,
+    hrBox.left,
+    6590
+  );
+
+  ctx.font = '500 24px "JetBrains Mono", monospace';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+  ctx.fillText(
+    'NASA IPAC 2MASS ALL-SKY SURVEY · U.S. PUBLIC DOMAIN · 300 DPI FINE-ART EDITION',
+    hrBox.left,
+    6650
+  );
+
+  ctx.textAlign = 'left';
+  ctx.font = '400 29px "Inter", sans-serif';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+  const rightX = centerX + 400;
+  ctx.fillText('Above, the stars as they sit in the sky. Below, the same', rightX, 6520);
+  ctx.fillText('stars sorted by temperature (hot at left) and luminosity', rightX, 6565);
+  ctx.fillText('(bright at top). Luminous threads join the stars.', rightX, 6610);
+}
+
+/**
+ * Theme 2: "Star Quilt"
+ * Binned patchwork of stitched fabric tiles on warm archival cream.
+ */
+export function renderStarQuiltPoster(options: {
+  ctx: CanvasRenderingContext2D;
+  width?: number;
+  height?: number;
+  bounds: HrBounds;
+  stars: Array<{ star: GaiaStar; sourceLabel: string }>;
+  primaryPreset?: TargetPreset | null;
+}): void {
+  const { ctx, width = 5400, height = 7200, bounds, stars, primaryPreset } = options;
+
+  ctx.fillStyle = '#f7f4ed';
+  ctx.fillRect(0, 0, width, height);
+
+  const preset = primaryPreset ?? TARGET_PRESETS[0];
+
+  ctx.textAlign = 'left';
+  ctx.font = '900 155px "Inter", "Georgia", serif';
+  ctx.fillStyle = '#292524';
+  ctx.fillText(formatPosterTitle(preset), 520, 580);
+
+  ctx.textAlign = 'right';
+  ctx.font = '500 32px "JetBrains Mono", monospace';
+  ctx.fillStyle = '#78716c';
+  ctx.fillText('SEVEN FABRICS, ONE PER CLASS', width - 520, 520);
+  ctx.fillText('HOT LEFT · BRIGHT TOP', width - 520, 570);
+
+  const gridLeft = 1200;
+  const gridTop = 1350;
+  const gridWidth = 3100;
+  const gridHeight = 3900;
+  const numCols = 18;
+  const numRows = 20;
+
+  const cellW = gridWidth / numCols;
+  const cellH = gridHeight / numRows;
+  const patchW = cellW * 0.88;
+  const patchH = cellH * 0.88;
+
+  const bins = new Map<string, number>();
+  let maxCount = 1;
+
+  for (const { star } of stars) {
+    const bpRp = star.bpRp ?? 0.8;
+    const absMag = star.absoluteMagG ?? 4.5;
+    const col = Math.floor(((bpRp - bounds.minBpRp) / (bounds.maxBpRp - bounds.minBpRp)) * numCols);
+    const row = Math.floor(((absMag - bounds.minAbsMag) / (bounds.maxAbsMag - bounds.minAbsMag)) * numRows);
+    if (col >= 0 && col < numCols && row >= 0 && row < numRows) {
+      const key = `${col},${row}`;
+      const cnt = (bins.get(key) ?? 0) + 1;
+      bins.set(key, cnt);
+      if (cnt > maxCount) maxCount = cnt;
+    }
+  }
+
+  const getColColor = (col: number): { fill: string; stroke: string } => {
+    if (col <= 1) return { fill: '#3b5998', stroke: '#2b4478' };
+    if (col <= 4) return { fill: '#5dade2', stroke: '#3498db' };
+    if (col <= 6) return { fill: '#aed6f1', stroke: '#85c1e9' };
+    if (col <= 8) return { fill: '#fcf3cf', stroke: '#d4ac0d' };
+    if (col <= 11) return { fill: '#f5b041', stroke: '#d68910' };
+    if (col <= 14) return { fill: '#eb984e', stroke: '#ba4a00' };
+    return { fill: '#cb4335', stroke: '#922b21' };
+  };
+
+  bins.forEach((count, key) => {
+    const [colStr, rowStr] = key.split(',');
+    const col = parseInt(colStr, 10);
+    const row = parseInt(rowStr, 10);
+
+    const px = gridLeft + col * cellW + (cellW - patchW) / 2;
+    const py = gridTop + row * cellH + (cellH - patchH) / 2;
+
+    const { fill, stroke } = getColColor(col);
+    const alpha = Math.min(1.0, 0.35 + 0.65 * Math.pow(count / maxCount, 0.5));
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = fill;
+    drawRoundedRect(ctx, px, py, patchW, patchH, 16);
+    ctx.fill();
+
+    ctx.globalAlpha = Math.min(1.0, alpha * 1.2);
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([8, 6]);
+    drawRoundedRect(ctx, px + 8, py + 8, patchW - 16, patchH - 16, 10);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  });
+
+  const spectralClasses = [
+    { label: 'O', col: 1, color: '#3b5998' },
+    { label: 'B', col: 3, color: '#5dade2' },
+    { label: 'A', col: 5, color: '#6ba4e8' },
+    { label: 'F', col: 8, color: '#d4ac0d' },
+    { label: 'G', col: 10, color: '#f5b041' },
+    { label: 'K', col: 13, color: '#eb984e' },
+    { label: 'M', col: 16, color: '#cb4335' },
+  ];
+
+  ctx.font = '800 96px "Inter", sans-serif';
+  ctx.textAlign = 'center';
+  for (const sp of spectralClasses) {
+    const x = gridLeft + sp.col * cellW + cellW / 2;
+    ctx.fillStyle = sp.color;
+    ctx.fillText(sp.label, x, gridTop + gridHeight + 110);
+  }
+
+  ctx.textAlign = 'left';
+  ctx.font = '400 36px "Inter", sans-serif';
+  ctx.fillStyle = '#44403c';
+  ctx.fillText('Each patch is one square of the H–R diagram, cut from the', 520, 6260);
+  ctx.fillText('fabric of its spectral class. Solid patches hold many stars;', 520, 6315);
+  ctx.fillText('faded ones hold one or two.', 520, 6370);
+
+  ctx.textAlign = 'right';
+  ctx.font = '500 30px "JetBrains Mono", monospace';
+  ctx.fillStyle = '#78716c';
+  ctx.fillText('EACH STEP UP ×10 IN LUMINOSITY', width - 520, 6260);
+  ctx.fillText(`${preset.label.toUpperCase()} · ${stars.length} STARS`, width - 520, 6310);
+  ctx.fillText('NASA 2MASS INFRARED SURVEY · U.S. PUBLIC DOMAIN', width - 520, 6360);
+}
+
+/**
+ * Theme 3: "Night Fall / Cascade"
+ * Frameless flowing cascade of stars pouring from sky field into diagonal H–R sequence.
+ */
+export function renderNightFallPoster(options: {
+  ctx: CanvasRenderingContext2D;
+  width?: number;
+  height?: number;
+  bounds: HrBounds;
+  stars: Array<{ star: GaiaStar; sourceLabel: string }>;
+  primaryPreset?: TargetPreset | null;
+}): void {
+  const { ctx, width = 5400, height = 7200, bounds, stars, primaryPreset } = options;
+
+  ctx.fillStyle = '#010306';
+  ctx.fillRect(0, 0, width, height);
+
+  const centerX = width / 2;
+  const preset = primaryPreset ?? TARGET_PRESETS[0];
+
+  ctx.textAlign = 'left';
+  ctx.font = '500 44px "JetBrains Mono", monospace';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+  ctx.fillText(preset.catalogCode ?? preset.shortName, 520, 480);
+
+  const skyField = {
+    left: 1000,
+    top: 750,
+    width: 3400,
+    height: 2200,
+  };
+
+  const hrBox: PlotBox = {
+    left: 650,
+    top: 3600,
+    width: 4100,
+    height: 2400,
+  };
+
+  const baseRa = preset.cone?.ra ?? 56.75;
+  const baseDec = preset.cone?.dec ?? 24.12;
+  const radiusDeg = Math.max(0.2, preset.cone?.radiusDeg ?? 1.2);
+  const cosDec = Math.cos((baseDec * Math.PI) / 180);
+
+  const starData = stars
+    .map(({ star }) => {
+      const bpRp = star.bpRp ?? 0.8;
+      const absMag = star.absoluteMagG ?? 4.5;
+      const dx = ((star.ra - baseRa) * cosDec) / radiusDeg;
+      const dy = (star.dec - baseDec) / radiusDeg;
+
+      const skyX = skyField.left + skyField.width / 2 + dx * (skyField.width * 0.45);
+      const skyY = skyField.top + skyField.height / 2 - dy * (skyField.height * 0.45);
+
+      const xNorm = (bpRp - bounds.minBpRp) / (bounds.maxBpRp - bounds.minBpRp);
+      const yNorm = (absMag - bounds.minAbsMag) / (bounds.maxAbsMag - bounds.minAbsMag);
+      const hrX = hrBox.left + xNorm * hrBox.width;
+      const hrY = hrBox.top + yNorm * hrBox.height;
+
+      const hex = bpRpToStarHexColor(bpRp, 'blackbody');
+      const brightnessNorm = Math.max(0, Math.min(1, (12 - absMag) / 16));
+
+      return { star, skyX, skyY, hrX, hrY, hex, brightnessNorm, absMag };
+    })
+    .sort((a, b) => b.absMag - a.absMag);
+
+  for (const item of starData) {
+    const alpha = Math.min(0.4, 0.08 + item.brightnessNorm * 0.3);
+    const lineWidth = Math.max(1.4, 1.2 + item.brightnessNorm * 3.5);
+
+    ctx.save();
+    ctx.strokeStyle = item.hex;
+    ctx.globalAlpha = alpha;
+    ctx.lineWidth = lineWidth;
+
+    ctx.beginPath();
+    ctx.moveTo(item.skyX, item.skyY);
+    const cp1Y = item.skyY + (item.hrY - item.skyY) * 0.5;
+    const cp2Y = item.hrY - (item.hrY - item.skyY) * 0.5;
+    ctx.bezierCurveTo(item.skyX, cp1Y, item.hrX, cp2Y, item.hrX, item.hrY);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  for (const item of starData) {
+    const dotRadius = Math.max(2.5, 2.0 + item.brightnessNorm * 5.5);
+
+    ctx.fillStyle = item.hex;
+    ctx.beginPath();
+    ctx.arc(item.skyX, item.skyY, dotRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(item.hrX, item.hrY, dotRadius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  const spectralLetters = [
+    { cls: 'O', bpRp: -0.42, color: '#60a5fa' },
+    { cls: 'B', bpRp: -0.15, color: '#93c5fd' },
+    { cls: 'A', bpRp: 0.12, color: '#f8fafc' },
+    { cls: 'F', bpRp: 0.45, color: '#fef08a' },
+    { cls: 'G', bpRp: 0.82, color: '#facc15' },
+    { cls: 'K', bpRp: 1.32, color: '#fb923c' },
+    { cls: 'M', bpRp: 2.15, color: '#ef4444' },
+  ];
+
+  ctx.font = '700 52px "Inter", sans-serif';
+  ctx.textAlign = 'center';
+  for (const item of spectralLetters) {
+    const xNorm = (item.bpRp - bounds.minBpRp) / (bounds.maxBpRp - bounds.minBpRp);
+    if (xNorm >= 0 && xNorm <= 1) {
+      const x = hrBox.left + xNorm * hrBox.width;
+      ctx.fillStyle = item.color;
+      ctx.fillText(item.cls, x, hrBox.top + hrBox.height + 60);
+    }
+  }
+
+  const distStr =
+    preset.distancePcApprox >= 1000
+      ? `${(preset.distancePcApprox / 1000).toFixed(1)} kpc`
+      : `${preset.distancePcApprox} pc`;
+
+  ctx.textAlign = 'left';
+  ctx.font = '700 108px "Inter", sans-serif';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(formatPosterTitle(preset), hrBox.left, 6500);
+
+  ctx.font = '400 32px "JetBrains Mono", monospace';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+  ctx.fillText(
+    `${preset.category.toUpperCase()} · ${preset.constellation?.toUpperCase() ?? 'MILKY WAY'} · ~${distStr.toUpperCase()} · ~${preset.age.toUpperCase()}`,
+    hrBox.left,
+    6570
+  );
+
+  ctx.font = '500 24px "JetBrains Mono", monospace';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+  ctx.fillText(
+    'NASA IPAC 2MASS ALL-SKY SURVEY · U.S. PUBLIC DOMAIN · 300 DPI FINE-ART PRINT',
+    hrBox.left,
+    6630
+  );
+
+  ctx.textAlign = 'left';
+  ctx.font = '400 29px "Inter", sans-serif';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+  const rightX = centerX + 400;
+  ctx.fillText('Every star falls from its place in the sky to its place', rightX, 6500);
+  ctx.fillText('on the H–R diagram: hot at left, bright at top,', rightX, 6545);
+  ctx.fillText('×10 per step. Strand width follows luminosity.', rightX, 6590);
+}
+
+/**
+ * Main fine-art poster renderer: delegates to the active theme
+ * ('two-maps', 'star-quilt', or 'night-fall').
+ */
+export function renderFineArtPoster(options: {
+  ctx: CanvasRenderingContext2D;
+  width?: number;
+  height?: number;
+  bounds: HrBounds;
+  themeId?: PosterThemeId;
+  stars: Array<{ star: GaiaStar; sourceLabel: string }>;
+  primaryPreset?: TargetPreset | null;
+}): void {
+  const { themeId = 'two-maps' } = options;
+  if (themeId === 'star-quilt') {
+    renderStarQuiltPoster(options);
+    return;
+  }
+  if (themeId === 'night-fall') {
+    renderNightFallPoster(options);
+    return;
+  }
+  renderTwoMapsPoster(options);
+}
+
+/**
+ * Render an ultra-high resolution 18×24" fine-art poster (5400 × 7200 px at 300 DPI)
  * featuring the classic Wikipedia / Richard Powell H–R diagram on top
  * and an editorial Clean Museum Edition typography block at the bottom.
  */
@@ -1553,7 +2457,8 @@ export function renderGalleryPosterCanvas(options: {
   width?: number;
   height?: number;
   bounds: HrBounds;
-  schemeId: ColorSchemeId;
+  schemeId?: ColorSchemeId;
+  themeId?: PosterThemeId;
   stars: Array<{ star: GaiaStar; sourceLabel: string }>;
   showRadiusLines?: boolean;
   primaryPreset?: TargetPreset | null;
@@ -1565,13 +2470,27 @@ export function renderGalleryPosterCanvas(options: {
     width = 5400,
     height = 7200,
     bounds,
-    schemeId,
+    schemeId = 'blackbody',
+    themeId,
     stars,
     showRadiusLines = false,
     primaryPreset,
     customTarget,
     additionalPresets = [],
   } = options;
+
+  if (themeId) {
+    renderFineArtPoster({
+      ctx,
+      width,
+      height,
+      bounds,
+      themeId,
+      stars,
+      primaryPreset,
+    });
+    return;
+  }
 
   const scheme = COLOR_SCHEMES[schemeId];
   const isLightTheme = schemeId === 'print-light';
@@ -1784,9 +2703,7 @@ export function renderGalleryPosterCanvas(options: {
       .join('  •  ')
       .toUpperCase();
   } else if (primaryPreset) {
-    mainTitle = (
-      primaryPreset.catalogCode ? `${primaryPreset.catalogCode} · ` : ''
-    ) + primaryPreset.shortName.toUpperCase();
+    mainTitle = formatPosterTitle(primaryPreset);
     subtitle = 'HERTZSPRUNG–RUSSELL STELLAR POPULATION DIAGRAM';
   } else if (customTarget) {
     mainTitle = customTarget.name.toUpperCase();
@@ -1881,7 +2798,7 @@ export function renderGalleryPosterCanvas(options: {
   ctx.font = `500 27px "JetBrains Mono", monospace`;
   ctx.fillStyle = isLightTheme ? 'rgba(15, 23, 42, 0.65)' : 'rgba(148, 163, 184, 0.65)';
   ctx.fillText(
-    'OBSERVATIONAL ASTROMETRY & PHOTOMETRY: EUROPEAN SPACE AGENCY (ESA) · GAIA MISSION DATA RELEASE 3',
+    'OBSERVATIONAL ASTROMETRY & PHOTOMETRY: NASA IPAC / IRSA 2MASS ALL-SKY SURVEY · U.S. PUBLIC DOMAIN',
     centerX,
     6680
   );
@@ -1891,5 +2808,85 @@ export function renderGalleryPosterCanvas(options: {
     6750
   );
 }
+
+/**
+ * Asynchronously generates and downloads a print-ready 18" × 24" (300 DPI, 5400 × 7200 px)
+ * portrait gallery poster PNG for a target preset.
+ * Uses cached NASA 2MASS stars if available, or rich synthesized fallback stars.
+ */
+export async function downloadGalleryPoster(
+  preset: TargetPreset,
+  themeOrSchemeId: PosterThemeId | ColorSchemeId = 'two-maps',
+  options?: { showRadiusLines?: boolean }
+): Promise<void> {
+  if (typeof document === 'undefined') return;
+
+  const width = 5400;
+  const height = 7200;
+  const offscreen = document.createElement('canvas');
+  offscreen.width = width;
+  offscreen.height = height;
+  const ctx = offscreen.getContext('2d');
+  if (!ctx) return;
+
+  let stars = getCachedNasaStars(preset.id, 1000) ?? getCachedTargetStars(preset.id, 1000);
+  if (!stars || stars.length === 0) {
+    stars = generateClusterFallbackStars(preset);
+  }
+
+  const tagged = stars.map((star) => ({
+    star,
+    sourceLabel: preset.shortName,
+  }));
+
+  const isFineArtTheme =
+    themeOrSchemeId === 'two-maps' ||
+    themeOrSchemeId === 'star-quilt' ||
+    themeOrSchemeId === 'night-fall';
+
+  if (isFineArtTheme) {
+    renderFineArtPoster({
+      ctx,
+      width,
+      height,
+      bounds: HR_BOUNDS,
+      themeId: themeOrSchemeId as PosterThemeId,
+      stars: tagged,
+      primaryPreset: preset,
+    });
+  } else {
+    renderGalleryPosterCanvas({
+      ctx,
+      width,
+      height,
+      bounds: HR_BOUNDS,
+      schemeId: themeOrSchemeId as ColorSchemeId,
+      stars: tagged,
+      showRadiusLines: options?.showRadiusLines ?? false,
+      primaryPreset: preset,
+    });
+  }
+
+  return new Promise((resolve) => {
+    offscreen.toBlob((blob) => {
+      if (!blob) {
+        resolve();
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `starplot-18x24-${preset.id}-${themeOrSchemeId}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+        resolve();
+      }, 5000);
+    }, 'image/png');
+  });
+}
+
 
 
