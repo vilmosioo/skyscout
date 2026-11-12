@@ -16,13 +16,16 @@ import {
   generateClusterFallbackStars,
   generateClusterPreviewPoints,
   getClusterCutoutUrl,
+  getEtsyListingCopy,
   getGaiaStarExternalUrls,
   getStarPhysicalDetails,
   hexToRgba,
   HR_BOUNDS,
   panHrBounds,
   POSTER_THEMES,
+  renderDetailCropMockup,
   renderFineArtPoster,
+  renderFramedRoomMockup,
   renderGalleryPosterCanvas,
   renderTwoMapsPoster,
   type PosterThemeId,
@@ -325,7 +328,7 @@ describe('fetchTargetStars Live Dispatch & Local Caching', () => {
     );
   });
 
-  it('renders 18x24 museum gallery poster canvas with plaque metadata', () => {
+  it('renders 18x24 gallery poster canvas with plaque metadata', () => {
     const mockCtx = {
       fillRect: vi.fn(),
       fillText: vi.fn(),
@@ -387,7 +390,7 @@ describe('fetchTargetStars Live Dispatch & Local Caching', () => {
     expect(formatPosterTitle(m67)).toBe('M67');
   });
 
-  describe('3 Distinct Museum Fine-Art Poster Themes', () => {
+  describe('3 Distinct Fine-Art Poster Themes', () => {
     const createMockCtx = () =>
       ({
         fillRect: vi.fn(),
@@ -625,16 +628,85 @@ describe('fetchTargetStars Live Dispatch & Local Caching', () => {
         primaryPreset: solarPreset,
       });
 
-      // Verifies Sun anchor label & heliocentric subtitle
+      // Verifies Sun anchor label & top heliocentric header
       expect(ctx.fillText).toHaveBeenCalledWith('☉ Sun (0 pc)', expect.any(Number), expect.any(Number));
       expect(ctx.fillText).toHaveBeenCalledWith(
-        'THE SOLAR NEIGHBORHOOD — 50 PC SPHERE CENTERED ON THE SUN',
+        'SOLAR BUBBLE · 50 PC SPHERE',
         expect.any(Number),
         expect.any(Number)
       );
       // Verifies tailored solar neighborhood description
       expect(ctx.fillText).toHaveBeenCalledWith(
         'Above, our local stellar neighborhood mapped from the',
+        expect.any(Number),
+        expect.any(Number)
+      );
+    });
+
+    it('generates high-converting Etsy listing copy, SEO title, 13 tags, and description', () => {
+      const pleiades = TARGET_PRESETS.find((p) => p.id === 'pleiades')!;
+      const copy = getEtsyListingCopy(pleiades, 'two-maps');
+
+      expect(copy.title).toContain('PLEIADES');
+      expect(copy.title).toContain('Star Cluster Poster');
+      expect(copy.title.length).toBeLessThanOrEqual(140);
+      expect(copy.tags).toHaveLength(13);
+      expect(copy.tags).toContain('astronomy wall art');
+      expect(copy.tags).toContain('hertzsprung diagram');
+      expect(copy.description).toContain('PLEIADES');
+      expect(copy.description).toContain('300 DPI');
+      expect(copy.description).toContain('WHAT YOU RECEIVE');
+      expect(copy.suggestedPriceDigital).toBe('$8.90');
+    });
+
+    it('renders framed gallery room mockup and macro detail crop for Etsy listing photos', () => {
+      const ctx = createMockCtx();
+      const mockPosterCanvas = {
+        width: 5400,
+        height: 7200,
+      } as HTMLCanvasElement;
+
+      // 1. Framed room mockup
+      renderFramedRoomMockup({
+        ctx,
+        posterCanvas: mockPosterCanvas,
+        width: 2400,
+        height: 2000,
+        frameStyle: 'natural-oak',
+      });
+
+      expect(ctx.fillRect).toHaveBeenCalled();
+      expect(ctx.strokeRect).toHaveBeenCalled();
+      expect(ctx.drawImage).toHaveBeenCalledWith(
+        mockPosterCanvas,
+        expect.any(Number),
+        expect.any(Number),
+        900,
+        1200
+      );
+
+      // 2. Macro detail crop
+      const cropCtx = createMockCtx();
+      renderDetailCropMockup({
+        ctx: cropCtx,
+        posterCanvas: mockPosterCanvas,
+        width: 2000,
+        height: 2000,
+      });
+
+      expect(cropCtx.drawImage).toHaveBeenCalledWith(
+        mockPosterCanvas,
+        1400,
+        2200,
+        2600,
+        2600,
+        0,
+        0,
+        2000,
+        2000
+      );
+      expect(cropCtx.fillText).toHaveBeenCalledWith(
+        '300 DPI VECTOR CRISPNESS · DETAIL PREVIEW',
         expect.any(Number),
         expect.any(Number)
       );

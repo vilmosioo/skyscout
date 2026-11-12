@@ -5,6 +5,8 @@ import type { GaiaStar } from '@skyscout/gaia-client';
 import {
   bpRpToStarHexColor,
   downloadGalleryPoster,
+  drawEtsyShopBanner,
+  drawEtsyShopLogo,
   fetchNasaClusterStars,
   formatPosterTitle,
   generateClusterFallbackStars,
@@ -35,7 +37,7 @@ function ClusterCard({
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stars = useMemo(() => {
-    return getCachedNasaStars(preset.id, 400) ?? generateClusterFallbackStars(preset);
+    return getCachedNasaStars(preset.id, 1000) ?? generateClusterFallbackStars(preset);
   }, [preset]);
 
   useEffect(() => {
@@ -44,404 +46,31 @@ function ClusterCard({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Standard 3:4 aspect ratio matching 18×24" fine-art poster dimensions
-    canvas.width = 360;
-    canvas.height = 480;
+    // Standard 3:4 aspect ratio matching 18×24" fine-art poster dimensions (540×720 for crisp 2x DPR)
+    canvas.width = 540;
+    canvas.height = 720;
 
-    const theme = POSTER_THEMES[themeId];
-    ctx.fillStyle = theme.bg;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const scale = 540 / 5400;
+    ctx.save();
+    ctx.scale(scale, scale);
 
-    const baseRa = preset.cone?.ra ?? 56.75;
-    const baseDec = preset.cone?.dec ?? 24.12;
-    const radiusDeg = Math.max(0.2, preset.cone?.radiusDeg ?? 1.2);
-    const cosDec = Math.max(0.1, Math.cos((baseDec * Math.PI) / 180));
+    const starList = stars.length > 0 ? stars : generateClusterFallbackStars(preset);
+    const tagged = starList.map((star) => ({
+      star,
+      sourceLabel: preset.shortName,
+    }));
 
-    // Sample stars for clean, high-performance rendering (up to 160 stars)
-    const step = Math.max(1, Math.floor(stars.length / 160));
-    const sampleStars = stars.filter((_, idx) => idx % step === 0);
-
-    if (themeId === 'two-maps') {
-      // 🌌 Two Maps Thumbnail: Sky Disc above + H-R Box below + Connecting Bezier Strands
-      const isSolar = preset.id === 'solar-50pc';
-
-      // Top title
-      ctx.textAlign = 'left';
-      ctx.font = '700 13px "Inter", sans-serif';
-      ctx.fillStyle = '#ffffff';
-      ctx.fillText(formatPosterTitle(preset), 24, 26);
-
-      ctx.font = '500 7px "JetBrains Mono", monospace';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
-      ctx.fillText(
-        isSolar ? '50 PC SPHERE · SUN AT CENTER' : `${preset.category.toUpperCase()} · ${preset.constellation?.toUpperCase() ?? 'MILKY WAY'}`,
-        24,
-        38
-      );
-
-      // Top right catalog code
-      ctx.textAlign = 'right';
-      ctx.font = '600 8.5px "JetBrains Mono", monospace';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-      ctx.fillText(preset.catalogCode ?? preset.shortName, 336, 26);
-
-      const skyCenter = { x: 180, y: 135 };
-      const skyR = 70;
-
-      // Sky Disc
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
-      ctx.lineWidth = 1.2;
-      ctx.beginPath();
-      ctx.arc(skyCenter.x, skyCenter.y, skyR, 0, Math.PI * 2);
-      ctx.stroke();
-
-      if (isSolar) {
-        // Range ring at 25 pc
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
-        ctx.beginPath();
-        ctx.arc(skyCenter.x, skyCenter.y, skyR * 0.5, 0, Math.PI * 2);
-        ctx.stroke();
-
-        // Sun dot at center
-        ctx.fillStyle = '#facc15';
-        ctx.beginPath();
-        ctx.arc(skyCenter.x, skyCenter.y, 2.5, 0, Math.PI * 2);
-        ctx.fill();
-      } else {
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
-        ctx.beginPath();
-        ctx.arc(skyCenter.x, skyCenter.y, skyR * 0.5, 0, Math.PI * 2);
-        ctx.stroke();
-
-        // Crosshair
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-        ctx.beginPath();
-        ctx.moveTo(skyCenter.x - 6, skyCenter.y);
-        ctx.lineTo(skyCenter.x + 6, skyCenter.y);
-        ctx.moveTo(skyCenter.x, skyCenter.y - 6);
-        ctx.lineTo(skyCenter.x, skyCenter.y + 6);
-        ctx.stroke();
-      }
-
-      // Bottom Diagram Box
-      const hrBox = { left: 40, top: 270, width: 280, height: 155 };
-      ctx.font = '600 9.5px "JetBrains Mono", monospace';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
-      ctx.fillText('THE DIAGRAM — WHAT THE STARS ARE', skyCenter.x, 258);
-
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
-      ctx.strokeRect(hrBox.left, hrBox.top, hrBox.width, hrBox.height);
-
-      // Spectral Class labels O B A F G K M
-      const spectralLabels = [
-        { l: 'O', x: 0.05, c: '#60a5fa' },
-        { l: 'B', x: 0.15, c: '#93c5fd' },
-        { l: 'A', x: 0.28, c: '#f8fafc' },
-        { l: 'F', x: 0.44, c: '#fef08a' },
-        { l: 'G', x: 0.60, c: '#facc15' },
-        { l: 'K', x: 0.77, c: '#fb923c' },
-        { l: 'M', x: 0.94, c: '#ef4444' },
-      ];
-      ctx.font = '700 9px "Inter", sans-serif';
-      spectralLabels.forEach((item) => {
-        ctx.fillStyle = item.c;
-        ctx.fillText(item.l, hrBox.left + item.x * hrBox.width, hrBox.top + hrBox.height + 15);
-      });
-
-      // Project stars and draw connecting strands
-      const mapped = sampleStars.map((star) => {
-        const bpRp = star.bpRp ?? 0.8;
-        const absMag = star.absoluteMagG ?? 4.5;
-
-        let sx: number;
-        let sy: number;
-        if (isSolar) {
-          const distPc =
-            star.distancePc ??
-            (star.parallaxMas && star.parallaxMas > 0 ? 1000 / star.parallaxMas : 25);
-          const rNorm = Math.min(1, Math.max(0.02, distPc / 50));
-          const rPixels = rNorm * (skyR - 6);
-          const angle = (star.ra * Math.PI) / 180;
-          sx = skyCenter.x + Math.cos(angle) * rPixels;
-          sy = skyCenter.y - Math.sin(angle) * rPixels;
-        } else {
-          // True Sky Coordinates projection
-          const dx = ((star.ra - baseRa) * cosDec) / radiusDeg;
-          const dy = (star.dec - baseDec) / radiusDeg;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          const rClamped = dist <= 1 ? dist : 1 / (1 + (dist - 1) * 0.4);
-          const angle = Math.atan2(dy, dx);
-          sx = skyCenter.x + Math.cos(angle) * rClamped * (skyR - 4);
-          sy = skyCenter.y - Math.sin(angle) * rClamped * (skyR - 4);
-        }
-
-        // True H-R Coordinates projection
-        const xNorm = Math.max(0, Math.min(1, (bpRp - HR_BOUNDS.minBpRp) / (HR_BOUNDS.maxBpRp - HR_BOUNDS.minBpRp)));
-        const yNorm = Math.max(0, Math.min(1, (absMag - HR_BOUNDS.minAbsMag) / (HR_BOUNDS.maxAbsMag - HR_BOUNDS.minAbsMag)));
-        const hx = hrBox.left + xNorm * hrBox.width;
-        const hy = hrBox.top + yNorm * hrBox.height;
-
-        const color = bpRpToStarHexColor(bpRp, 'blackbody');
-        return { sx, sy, hx, hy, color, absMag, star };
-      });
-
-      // Identify top 4 brightest stars to highlight with glowing strands & halos
-      const sortedBright = [...mapped].sort((a, b) => a.absMag - b.absMag);
-      const topBrightSet = new Set(sortedBright.slice(0, 4));
-
-      // Connecting cubic Bezier strands for standard stars
-      ctx.lineWidth = 0.8;
-      for (const pt of mapped) {
-        if (topBrightSet.has(pt)) continue;
-        ctx.strokeStyle = pt.color;
-        ctx.globalAlpha = 0.16;
-        ctx.beginPath();
-        ctx.moveTo(pt.sx, pt.sy);
-        const cp1Y = pt.sy + (pt.hy - pt.sy) * 0.45;
-        const cp2Y = pt.hy - (pt.hy - pt.sy) * 0.45;
-        ctx.bezierCurveTo(pt.sx, cp1Y, pt.hx, cp2Y, pt.hx, pt.hy);
-        ctx.stroke();
-      }
-
-      // Connecting cubic Bezier strands for highlighted bright stars (glowing dual beam!)
-      for (const pt of topBrightSet) {
-        const cp1Y = pt.sy + (pt.hy - pt.sy) * 0.45;
-        const cp2Y = pt.hy - (pt.hy - pt.sy) * 0.45;
-
-        // Outer glow
-        ctx.strokeStyle = pt.color;
-        ctx.globalAlpha = 0.38;
-        ctx.lineWidth = 3.6;
-        ctx.beginPath();
-        ctx.moveTo(pt.sx, pt.sy);
-        ctx.bezierCurveTo(pt.sx, cp1Y, pt.hx, cp2Y, pt.hx, pt.hy);
-        ctx.stroke();
-
-        // Core line
-        ctx.strokeStyle = '#ffffff';
-        ctx.globalAlpha = 0.9;
-        ctx.lineWidth = 1.3;
-        ctx.stroke();
-      }
-
-      // Star dots for standard stars
-      for (const pt of mapped) {
-        if (topBrightSet.has(pt)) continue;
-        ctx.globalAlpha = 0.8;
-        ctx.fillStyle = pt.color;
-        const r = pt.absMag < 2.0 ? 1.5 : pt.absMag < 4.5 ? 1.1 : 0.8;
-        ctx.beginPath();
-        ctx.arc(pt.sx, pt.sy, r, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(pt.hx, pt.hy, r, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      // Highlighted bright star dots (halo + white core!)
-      for (const pt of topBrightSet) {
-        // Halo in sky
-        ctx.globalAlpha = 0.45;
-        ctx.fillStyle = pt.color;
-        ctx.beginPath();
-        ctx.arc(pt.sx, pt.sy, 5.0, 0, Math.PI * 2);
-        ctx.fill();
-        // White core in sky
-        ctx.globalAlpha = 1.0;
-        ctx.fillStyle = '#ffffff';
-        ctx.beginPath();
-        ctx.arc(pt.sx, pt.sy, 2.0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Halo in diagram
-        ctx.globalAlpha = 0.45;
-        ctx.fillStyle = pt.color;
-        ctx.beginPath();
-        ctx.arc(pt.hx, pt.hy, 5.0, 0, Math.PI * 2);
-        ctx.fill();
-        // White core in diagram
-        ctx.globalAlpha = 1.0;
-        ctx.fillStyle = '#ffffff';
-        ctx.beginPath();
-        ctx.arc(pt.hx, pt.hy, 2.0, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.globalAlpha = 1.0;
-      return;
-    }
-
-    if (themeId === 'star-quilt') {
-      // 🧵 Star Quilt Thumbnail: Archival cream vintage aesthetic with stitched patchwork matrix
-      // Vintage title
-      ctx.font = '800 20px "Inter", sans-serif';
-      ctx.fillStyle = '#1c1917';
-      ctx.textAlign = 'left';
-      ctx.fillText(preset.shortName, 32, 42);
-
-      ctx.font = '600 7.5px "JetBrains Mono", monospace';
-      ctx.fillStyle = '#78716c';
-      ctx.fillText('SEVEN FABRICS · ONE PER CLASS', 32, 58);
-
-      // Quilt Grid
-      const numCols = 12;
-      const numRows = 14;
-      const qBox = { left: 34, top: 78, width: 292, height: 320 };
-      const cellW = qBox.width / numCols;
-      const cellH = qBox.height / numRows;
-
-      const densityMap = new Map<string, number>();
-      for (const s of stars) {
-        const bpRp = s.bpRp ?? 0.8;
-        const absMag = s.absoluteMagG ?? 4.5;
-        const c = Math.floor(((bpRp - HR_BOUNDS.minBpRp) / (HR_BOUNDS.maxBpRp - HR_BOUNDS.minBpRp)) * numCols);
-        const r = Math.floor(((absMag - HR_BOUNDS.minAbsMag) / (HR_BOUNDS.maxAbsMag - HR_BOUNDS.minAbsMag)) * numRows);
-        if (c >= 0 && c < numCols && r >= 0 && r < numRows) {
-          const key = `${c},${r}`;
-          densityMap.set(key, (densityMap.get(key) ?? 0) + 1);
-        }
-      }
-
-      let maxDensity = 1;
-      densityMap.forEach((count) => {
-        if (count > maxDensity) maxDensity = count;
-      });
-
-      const fabricColors = [
-        '#3b5998', // O: deep indigo
-        '#5dade2', // B: sky blue
-        '#85c1e9', // B/A: ice blue
-        '#aed6f1', // A: pale ice
-        '#d4e6f1', // A/F: soft frost
-        '#fcf3cf', // F: warm cream
-        '#f9e79f', // G: soft gold
-        '#f5b041', // G: gold
-        '#eb984e', // K: warm terracotta
-        '#dc7633', // K: deep terracotta
-        '#cb4335', // M: brick red
-        '#b03a2e', // M: ruby red
-      ];
-
-      densityMap.forEach((count, key) => {
-        const [cStr, rStr] = key.split(',');
-        const c = parseInt(cStr, 10);
-        const r = parseInt(rStr, 10);
-
-        const x = qBox.left + c * cellW;
-        const y = qBox.top + r * cellH;
-        const w = cellW - 3;
-        const h = cellH - 3;
-
-        const color = fabricColors[Math.min(fabricColors.length - 1, c)];
-        const alpha = Math.min(0.95, 0.35 + (count / maxDensity) * 0.6);
-
-        // Fill patch
-        ctx.globalAlpha = alpha;
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        ctx.roundRect ? ctx.roundRect(x, y, w, h, 2) : ctx.rect(x, y, w, h);
-        ctx.fill();
-
-        // Inset stitched dashed border
-        ctx.strokeStyle = '#ffffff';
-        ctx.globalAlpha = 0.55;
-        ctx.lineWidth = 0.8;
-        ctx.setLineDash([3, 2]);
-        ctx.strokeRect(x + 1.5, y + 1.5, w - 3, h - 3);
-        ctx.setLineDash([]);
-      });
-
-      // Bottom Colorful Letters O B A F G K M
-      const quiltSpectral = [
-        { l: 'O', c: '#3b5998' },
-        { l: 'B', c: '#5dade2' },
-        { l: 'A', c: '#85c1e9' },
-        { l: 'F', c: '#d4ac0d' },
-        { l: 'G', c: '#f39c12' },
-        { l: 'K', c: '#e67e22' },
-        { l: 'M', c: '#c0392b' },
-      ];
-      ctx.globalAlpha = 1.0;
-      ctx.font = '800 13px "Inter", sans-serif';
-      ctx.textAlign = 'center';
-      const specStep = qBox.width / quiltSpectral.length;
-      quiltSpectral.forEach((item, idx) => {
-        ctx.fillStyle = item.c;
-        ctx.fillText(item.l, qBox.left + idx * specStep + specStep / 2, qBox.top + qBox.height + 26);
-      });
-
-      // Footer Cluster label
-      ctx.font = '500 8.5px "JetBrains Mono", monospace';
-      ctx.fillStyle = '#78716c';
-      ctx.fillText(`${preset.shortName} · ${preset.age}`, 180, 452);
-      return;
-    }
-
-    // 🌊 Night Fall / Cascade: Frameless cosmic cascade streaming from sky directly into diagram
-    // Minimalist header
-    ctx.font = '700 16px "Inter", sans-serif';
-    ctx.fillStyle = '#f8fafc';
-    ctx.textAlign = 'left';
-    ctx.fillText(preset.shortName, 32, 42);
-
-    ctx.font = '500 8px "JetBrains Mono", monospace';
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
-    ctx.fillText(`${preset.category.toUpperCase()} · ${preset.age}`, 32, 58);
-
-    const skyCenter = { x: 180, y: 125 };
-    const skyR = 75;
-    const hrLeft = 40;
-    const hrTop = 320;
-    const hrW = 280;
-    const hrH = 110;
-
-    const mappedCascade = sampleStars.map((star) => {
-      const bpRp = star.bpRp ?? 0.8;
-      const absMag = star.absoluteMagG ?? 4.5;
-
-      const dx = ((star.ra - baseRa) * cosDec) / radiusDeg;
-      const dy = (star.dec - baseDec) / radiusDeg;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      const rClamped = dist <= 1 ? dist : 1 / (1 + (dist - 1) * 0.4);
-      const angle = Math.atan2(dy, dx);
-      const sx = skyCenter.x + Math.cos(angle) * rClamped * (skyR - 4);
-      const sy = skyCenter.y - Math.sin(angle) * rClamped * (skyR - 4);
-
-      const xNorm = Math.max(0, Math.min(1, (bpRp - HR_BOUNDS.minBpRp) / (HR_BOUNDS.maxBpRp - HR_BOUNDS.minBpRp)));
-      const yNorm = Math.max(0, Math.min(1, (absMag - HR_BOUNDS.minAbsMag) / (HR_BOUNDS.maxAbsMag - HR_BOUNDS.minAbsMag)));
-      const hx = hrLeft + xNorm * hrW;
-      const hy = hrTop + yNorm * hrH;
-
-      const color = bpRp < 0.3 ? '#93c5fd' : bpRp < 0.8 ? '#fef08a' : '#fed7aa';
-      const lumNorm = Math.max(0, Math.min(1, (12 - absMag) / 16));
-      return { sx, sy, hx, hy, color, lumNorm };
+    renderFineArtPoster({
+      ctx,
+      width: 5400,
+      height: 7200,
+      bounds: HR_BOUNDS,
+      themeId,
+      stars: tagged,
+      primaryPreset: preset,
     });
 
-    // Cascading luminous curves
-    for (const pt of mappedCascade) {
-      ctx.strokeStyle = pt.color;
-      ctx.globalAlpha = 0.12 + pt.lumNorm * 0.25;
-      ctx.lineWidth = 0.8 + pt.lumNorm * 1.4;
-      ctx.beginPath();
-      ctx.moveTo(pt.sx, pt.sy);
-      const cp1Y = pt.sy + (pt.hy - pt.sy) * 0.42;
-      const cp2Y = pt.hy - (pt.hy - pt.sy) * 0.42;
-      ctx.bezierCurveTo(pt.sx, cp1Y, pt.hx, cp2Y, pt.hx, pt.hy);
-      ctx.stroke();
-    }
-
-    // Star dots
-    for (const pt of mappedCascade) {
-      ctx.globalAlpha = 0.85;
-      ctx.fillStyle = pt.color;
-      const dotR = 1.0 + pt.lumNorm * 2.2;
-      ctx.beginPath();
-      ctx.arc(pt.sx, pt.sy, dotR, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(pt.hx, pt.hy, dotR, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.globalAlpha = 1.0;
+    ctx.restore();
   }, [preset, stars, themeId]);
 
   const distStr =
@@ -486,10 +115,6 @@ function ClusterCard({
 function HomeView() {
   const [activeTheme, setActiveTheme] = useState<PosterThemeId>('two-maps');
 
-  const [showEtsyModal, setShowEtsyModal] = useState<boolean>(false);
-  const [isExportingEtsy, setIsExportingEtsy] = useState<boolean>(false);
-  const [copiedField, setCopiedField] = useState<string | null>(null);
-
   return (
     <div className="site-wrapper">
       <header className="site-header">
@@ -498,7 +123,7 @@ function HomeView() {
             ✨ StarPlot <span className="header-badge">NASA 2MASS Collection</span>
           </h1>
           <p className="header-subtitle">
-            Fine-Art Astronomy Posters · 3 Distinct Museum Themes · {TARGET_PRESETS.length} Star Clusters
+            Fine-Art Astronomy Posters · 3 Curated Themes · {TARGET_PRESETS.length} Star Clusters
           </p>
         </div>
 
@@ -784,6 +409,128 @@ function ClusterPosterView() {
     }
   };
 
+  const getMasterPosterCanvas = (): HTMLCanvasElement => {
+    const master = document.createElement('canvas');
+    master.width = 5400;
+    master.height = 7200;
+    const masterCtx = master.getContext('2d');
+    if (masterCtx) {
+      const starList = stars.length > 0 ? stars : generateClusterFallbackStars(preset);
+      const tagged = starList.map((star) => ({
+        star,
+        sourceLabel: preset.shortName,
+      }));
+      renderFineArtPoster({
+        ctx: masterCtx,
+        width: 5400,
+        height: 7200,
+        bounds: HR_BOUNDS,
+        themeId: activeTheme,
+        stars: tagged,
+        primaryPreset: preset,
+      });
+    }
+    return master;
+  };
+
+  const downloadBlob = (blob: Blob | null, filename: string) => {
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  };
+
+  const handleDownloadHeroMockup = () => {
+    const master = getMasterPosterCanvas();
+    const mockup = document.createElement('canvas');
+    mockup.width = 2400;
+    mockup.height = 2000;
+    const mockupCtx = mockup.getContext('2d');
+    if (!mockupCtx) return;
+    renderFramedRoomMockup({
+      ctx: mockupCtx,
+      posterCanvas: master,
+      frameStyle: 'natural-oak',
+    });
+    mockup.toBlob((blob) => {
+      downloadBlob(blob, `etsy-1-hero-framed-mockup-${preset.id}.jpg`);
+    }, 'image/jpeg', 0.93);
+  };
+
+  const handleDownloadDetailCrop = () => {
+    const master = getMasterPosterCanvas();
+    const crop = document.createElement('canvas');
+    crop.width = 2000;
+    crop.height = 2000;
+    const cropCtx = crop.getContext('2d');
+    if (!cropCtx) return;
+    renderDetailCropMockup({
+      ctx: cropCtx,
+      posterCanvas: master,
+    });
+    crop.toBlob((blob) => {
+      downloadBlob(blob, `etsy-2-macro-detail-crop-${preset.id}.jpg`);
+    }, 'image/jpeg', 0.93);
+  };
+
+  const handleDownloadShopLogo = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 500;
+    canvas.height = 500;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    drawEtsyShopLogo(ctx, 500, 500);
+    canvas.toBlob((blob) => {
+      downloadBlob(blob, 'starplot-etsy-shop-logo-500x500.png');
+    }, 'image/png');
+  };
+
+  const handleDownloadShopBanner = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1200;
+    canvas.height = 300;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    drawEtsyShopBanner(ctx, 1200, 300);
+    canvas.toBlob((blob) => {
+      downloadBlob(blob, 'starplot-etsy-shop-banner-1200x300.png');
+    }, 'image/png');
+  };
+
+  const handleDownloadAllEtsyAssets = async () => {
+    setIsExportingEtsy(true);
+    try {
+      handleDownloadHeroMockup();
+      setTimeout(() => handleDownloadDetailCrop(), 600);
+      setTimeout(() => handleDownload(), 1200);
+    } finally {
+      setTimeout(() => setIsExportingEtsy(false), 2000);
+    }
+  };
+
+  const handleCopyText = (text: string, label: string) => {
+    if (navigator?.clipboard) {
+      navigator.clipboard.writeText(text);
+      setCopiedField(label);
+      setTimeout(() => setCopiedField(null), 2000);
+    }
+  };
+
+  const etsyCopy = useMemo(() => {
+    return getEtsyListingCopy(preset, activeTheme);
+  }, [preset, activeTheme]);
+
+  const shopStoryText = `StarPlot was founded out of a fascination with astrophysics and celestial cartography. Most star maps only show where stars sit across the celestial sphere, hiding their physical nature.
+
+Our charts bridge both worlds: connecting true astronomical sky coordinates directly with Hertzsprung–Russell diagrams. Every star is plotted from real space telescope and survey catalogs—including ESA Gaia DR3 astrometry and NASA 2MASS infrared archives.
+
+We render every line with vector precision at 300 DPI, creating clean, scientifically grounded artwork for astronomers, stargazers, and anyone drawn to the night sky.`;
+
   const distStr =
     preset.distancePcApprox >= 1000
       ? `~${(preset.distancePcApprox / 1000).toFixed(1)} kpc`
@@ -810,15 +557,25 @@ function ClusterPosterView() {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={handleDownload}
-          disabled={isExporting}
-          className="download-btn primary"
-          title={`Download 18×24 inch ${themeInfo.name} fine-art poster at 300 DPI (5400×7200 px PNG)`}
-        >
-          {isExporting ? '⏳ Rendering 300 DPI...' : `📥 Download 18×24" (${themeInfo.name})`}
-        </button>
+        <div className="poster-header-actions">
+          <button
+            type="button"
+            onClick={() => setShowEtsyModal(true)}
+            className="etsy-kit-btn"
+            title="Open Etsy Quick Launch Kit with ready-to-upload mockups and SEO listing copy"
+          >
+            🛍️ Etsy Launch Kit
+          </button>
+          <button
+            type="button"
+            onClick={handleDownload}
+            disabled={isExporting}
+            className="download-btn primary"
+            title={`Download 18×24 inch ${themeInfo.name} fine-art poster at 300 DPI (5400×7200 px PNG)`}
+          >
+            {isExporting ? '⏳ Rendering 300 DPI...' : `📥 Download 18×24" (${themeInfo.name})`}
+          </button>
+        </div>
       </header>
 
       {/* Theme Switcher Bar */}
@@ -933,6 +690,254 @@ function ClusterPosterView() {
           <p>{preset.subtitle}</p>
         </div>
       </main>
+
+      {/* 🛍️ Etsy Quick Launch Kit Modal */}
+      {showEtsyModal && (
+        <div className="modal-backdrop" onClick={() => setShowEtsyModal(false)}>
+          <div className="etsy-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h2>🛍️ Etsy Quick Launch Kit</h2>
+                <p>Everything you need to publish this listing and make a sale today</p>
+              </div>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={() => setShowEtsyModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="modal-body">
+              {/* Shop Branding: Logo & Banner */}
+              <section className="modal-section">
+                <h3>Shop Branding (Logo &amp; Banner)</h3>
+                <p className="section-hint">Required graphics for your Etsy shop storefront:</p>
+                <div className="etsy-assets-grid">
+                  <div className="asset-card">
+                    <span className="asset-badge">Shop Icon / Logo</span>
+                    <strong>StarPlot Star Reticle</strong>
+                    <span className="asset-dims">500 × 500 px · PNG (Circle-Crop Ready)</span>
+                    <button
+                      type="button"
+                      className="asset-download-btn"
+                      onClick={handleDownloadShopLogo}
+                    >
+                      ⬇ Download Logo (500×500)
+                    </button>
+                  </div>
+                  <div className="asset-card">
+                    <span className="asset-badge">Shop Banner</span>
+                    <strong>StarPlot Panoramic Banner</strong>
+                    <span className="asset-dims">1200 × 300 px · PNG (Storefront Header)</span>
+                    <button
+                      type="button"
+                      className="asset-download-btn"
+                      onClick={handleDownloadShopBanner}
+                    >
+                      ⬇ Download Banner (1200×300)
+                    </button>
+                  </div>
+                </div>
+              </section>
+
+              {/* Step 1: Listing Photos */}
+              <section className="modal-section">
+                <h3>1. Listing Images (Mockups &amp; Detail Crops)</h3>
+                <p className="section-hint">High-converting lifestyle photos ready to upload to Etsy Photos:</p>
+                <div className="etsy-assets-grid">
+                  <div className="asset-card">
+                    <span className="asset-badge">Photo 1 · Hero</span>
+                    <strong>Framed Room Mockup</strong>
+                    <span className="asset-dims">2400 × 2000 px · Oak Gallery Frame</span>
+                    <button
+                      type="button"
+                      className="asset-download-btn"
+                      onClick={handleDownloadHeroMockup}
+                    >
+                      ⬇ Download Hero Mockup (JPG)
+                    </button>
+                  </div>
+                  <div className="asset-card">
+                    <span className="asset-badge">Photo 2 · Detail</span>
+                    <strong>Macro Detail Crop</strong>
+                    <span className="asset-dims">2000 × 2000 px · Crisp Vector Threads</span>
+                    <button
+                      type="button"
+                      className="asset-download-btn"
+                      onClick={handleDownloadDetailCrop}
+                    >
+                      ⬇ Download Detail Crop (JPG)
+                    </button>
+                  </div>
+                  <div className="asset-card">
+                    <span className="asset-badge">Digital Deliverable</span>
+                    <strong>300 DPI Print File</strong>
+                    <span className="asset-dims">5400 × 7200 px · 18×24" Lossless PNG</span>
+                    <button
+                      type="button"
+                      className="asset-download-btn"
+                      onClick={handleDownload}
+                      disabled={isExporting}
+                    >
+                      ⬇ Download Print PNG
+                    </button>
+                  </div>
+                </div>
+
+                <div className="batch-download-row">
+                  <button
+                    type="button"
+                    className="batch-download-btn"
+                    onClick={handleDownloadAllEtsyAssets}
+                    disabled={isExportingEtsy}
+                  >
+                    {isExportingEtsy ? '⏳ Exporting All Assets...' : '⚡ Download All 3 Assets in 1-Click'}
+                  </button>
+                </div>
+              </section>
+
+              {/* Step 2: Listing Copy */}
+              <section className="modal-section">
+                <h3>2. Copy-Paste Listing Details</h3>
+
+                <div className="copy-field-group">
+                  <div className="field-header">
+                    <label>Listing Title (SEO-Optimized)</label>
+                    <button
+                      type="button"
+                      className="copy-btn"
+                      onClick={() => handleCopyText(etsyCopy.title, 'title')}
+                    >
+                      {copiedField === 'title' ? '✓ Copied!' : '📋 Copy Title'}
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    readOnly
+                    value={etsyCopy.title}
+                    className="copy-input"
+                    onClick={(e) => (e.target as HTMLInputElement).select()}
+                  />
+                </div>
+
+                <div className="copy-field-group">
+                  <div className="field-header">
+                    <label>13 Etsy Search Tags (Exact Match Algorithm)</label>
+                    <button
+                      type="button"
+                      className="copy-btn"
+                      onClick={() => handleCopyText(etsyCopy.tags.join(', '), 'tags')}
+                    >
+                      {copiedField === 'tags' ? '✓ Copied!' : '📋 Copy All 13 Tags'}
+                    </button>
+                  </div>
+                  <div className="tags-pill-list">
+                    {etsyCopy.tags.map((tag) => (
+                      <span key={tag} className="tag-pill">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="copy-field-group">
+                  <div className="field-header">
+                    <label>Listing Description</label>
+                    <button
+                      type="button"
+                      className="copy-btn"
+                      onClick={() => handleCopyText(etsyCopy.description, 'desc')}
+                    >
+                      {copiedField === 'desc' ? '✓ Copied!' : '📋 Copy Description'}
+                    </button>
+                  </div>
+                  <textarea
+                    readOnly
+                    rows={6}
+                    value={etsyCopy.description}
+                    className="copy-textarea"
+                    onClick={(e) => (e.target as HTMLTextAreaElement).select()}
+                  />
+                </div>
+
+                <div className="pricing-recommendation-box">
+                  <div className="pricing-badge">💰 Suggested Launch Pricing</div>
+                  <div className="pricing-columns">
+                    <div>
+                      <strong>Digital Download (Instant Margin):</strong> <span>$8.90</span> (or run 25% launch sale at $6.67)
+                    </div>
+                    <div>
+                      <strong>Physical Print (Gelato 18×24" Matte):</strong> <span>$34.00 – $38.00</span> ($18.50 profit/unit)
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              {/* Shop Story & About */}
+              <section className="modal-section">
+                <h3>Shop Story &amp; About Section</h3>
+                <p className="section-hint">Copy and paste this into Etsy's "Share your story" onboarding:</p>
+
+                <div className="copy-field-group">
+                  <div className="field-header">
+                    <label>Story Headline</label>
+                    <button
+                      type="button"
+                      className="copy-btn"
+                      onClick={() => handleCopyText('Bridging Celestial Sky Coordinates with Astrophysical Data', 'story-head')}
+                    >
+                      {copiedField === 'story-head' ? '✓ Copied!' : '📋 Copy Headline'}
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    readOnly
+                    value="Bridging Celestial Sky Coordinates with Astrophysical Data"
+                    className="copy-input"
+                    onClick={(e) => (e.target as HTMLInputElement).select()}
+                  />
+                </div>
+
+                <div className="copy-field-group">
+                  <div className="field-header">
+                    <label>About StarPlot Story</label>
+                    <button
+                      type="button"
+                      className="copy-btn"
+                      onClick={() => handleCopyText(shopStoryText, 'story-body')}
+                    >
+                      {copiedField === 'story-body' ? '✓ Copied!' : '📋 Copy Story Text'}
+                    </button>
+                  </div>
+                  <textarea
+                    readOnly
+                    rows={6}
+                    value={shopStoryText}
+                    className="copy-textarea"
+                    onClick={(e) => (e.target as HTMLTextAreaElement).select()}
+                  />
+                </div>
+              </section>
+
+              {/* Step 3: Launch Shop Action */}
+              <section className="modal-section launch-action-section">
+                <h3>3. Ready to Publish?</h3>
+                <p>Open Etsy's seller onboarding, paste the details above, and publish your listing:</p>
+                <a
+                  href="https://www.etsy.com/sell"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="open-etsy-btn"
+                >
+                  🚀 Open Etsy Shop Manager (etsy.com/sell) ↗
+                </a>
+              </section>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

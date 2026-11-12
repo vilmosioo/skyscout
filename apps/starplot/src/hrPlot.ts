@@ -1867,7 +1867,7 @@ export function generateClusterFallbackStars(preset: TargetPreset): GaiaStar[] {
 }
 
 /**
- * Formats a clean, non-redundant museum poster title for a cluster preset,
+ * Formats a clean, non-redundant poster title for a cluster preset,
  * preventing duplicate catalog codes (e.g. avoids "M45 · M45 PLEIADES" -> "M45 · PLEIADES").
  */
 export function formatPosterTitle(preset: TargetPreset): string {
@@ -2357,18 +2357,7 @@ export function renderTwoMapsPoster(options: {
     ctx.stroke();
   }
 
-  ctx.font = '500 32px "JetBrains Mono", monospace';
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
-  ctx.textAlign = 'center';
-  ctx.fillText(
-    isSolarVolume
-      ? 'THE SOLAR NEIGHBORHOOD — 50 PC SPHERE CENTERED ON THE SUN'
-      : 'THE SKY — WHERE THE STARS ARE',
-    centerX,
-    3180
-  );
-
-  // 3. Bottom H–R Diagram Box ("WHAT THE STARS ARE")
+  // 3. Bottom H–R Diagram Box
   const hrBox: PlotBox = {
     left: 650,
     top: 3680,
@@ -2379,11 +2368,6 @@ export function renderTwoMapsPoster(options: {
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
   ctx.lineWidth = 2.5;
   ctx.strokeRect(hrBox.left, hrBox.top, hrBox.width, hrBox.height);
-
-  ctx.font = '500 32px "JetBrains Mono", monospace';
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
-  ctx.textAlign = 'center';
-  ctx.fillText('THE DIAGRAM — WHAT THE STARS ARE', centerX, 3560);
 
   // Left Y-axis Logarithmic Luminosity Decades
   const lumTicks = [
@@ -2884,63 +2868,190 @@ export function renderNightFallPoster(options: {
     470
   );
 
-  // Top Right: Catalog code & coordinates
+  // Top Right: SKY + DIAGRAM & Coordinates
   ctx.textAlign = 'right';
-  ctx.font = '700 48px "JetBrains Mono", monospace';
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
-  ctx.fillText(preset.catalogCode ?? preset.shortName, width - 520, 400);
+  ctx.font = '700 40px "JetBrains Mono", monospace';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+  ctx.fillText('SKY + DIAGRAM', width - 520, 400);
 
-  ctx.font = '500 28px "JetBrains Mono", monospace';
+  ctx.font = '500 26px "JetBrains Mono", monospace';
   ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
   const coordText = preset.cone
     ? `RA ${formatHms(preset.cone.ra)} · DEC ${formatDms(preset.cone.dec)}`
     : 'SOLAR BUBBLE · 50 PC SPHERE';
   ctx.fillText(coordText, width - 520, 460);
 
+  // Wide sky band canopy pouring into the diagram below
   const skyField = {
-    left: 1000,
-    top: 750,
-    width: 3400,
-    height: 2200,
+    left: 520,
+    top: 680,
+    width: 4360,
+    height: 2000,
   };
 
   const hrBox: PlotBox = {
     left: 650,
-    top: 3600,
+    top: 3650,
     width: 4100,
     height: 2400,
   };
 
-  const baseRa = preset.cone?.ra ?? 56.75;
-  const baseDec = preset.cone?.dec ?? 24.12;
-  const radiusDeg = Math.max(0.2, preset.cone?.radiusDeg ?? 1.2);
-  const cosDec = Math.cos((baseDec * Math.PI) / 180);
+  const isSolarVolume = preset.id === 'solar-50pc' || preset.category === 'Solar Volume';
 
-  const starData = stars
-    .map(({ star }) => {
-      const bpRp = star.bpRp ?? 0.8;
-      const absMag = star.absoluteMagG ?? 4.5;
-      const dx = ((star.ra - baseRa) * cosDec) / radiusDeg;
-      const dy = (star.dec - baseDec) / radiusDeg;
+  let starData: Array<{
+    star: GaiaStar;
+    skyX: number;
+    skyY: number;
+    hrX: number;
+    hrY: number;
+    hex: string;
+    brightnessNorm: number;
+    absMag: number;
+    isRed: boolean;
+  }>;
 
-      const skyX = skyField.left + skyField.width / 2 + dx * (skyField.width * 0.45);
-      const skyY = skyField.top + skyField.height / 2 - dy * (skyField.height * 0.45);
+  if (isSolarVolume) {
+    // ☀️ Local Bubble (50 pc sphere centered on the Sun)
+    const bubbleCenterX = centerX;
+    const bubbleCenterY = 1750;
+    const bubbleRadius = 850;
 
-      const xNorm = (bpRp - bounds.minBpRp) / (bounds.maxBpRp - bounds.minBpRp);
-      const yNorm = (absMag - bounds.minAbsMag) / (bounds.maxAbsMag - bounds.minAbsMag);
-      const hrX = hrBox.left + xNorm * hrBox.width;
-      const hrY = hrBox.top + yNorm * hrBox.height;
+    // Concentric range rings for the 50 pc Local Bubble
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+    ctx.lineWidth = 2.0;
+    ctx.beginPath();
+    ctx.arc(bubbleCenterX, bubbleCenterY, bubbleRadius, 0, Math.PI * 2);
+    ctx.stroke();
 
-      const hex = bpRpToStarHexColor(bpRp, 'blackbody');
-      const brightnessNorm = Math.max(0, Math.min(1, (12 - absMag) / 16));
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(bubbleCenterX, bubbleCenterY, bubbleRadius * 0.5, 0, Math.PI * 2);
+    ctx.stroke();
 
-      return { star, skyX, skyY, hrX, hrY, hex, brightnessNorm, absMag };
-    })
-    .sort((a, b) => b.absMag - a.absMag);
+    // Range ring labels
+    ctx.font = '500 22px "JetBrains Mono", monospace';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+    ctx.textAlign = 'left';
+    ctx.fillText('50 PC LOCAL BUBBLE', bubbleCenterX + bubbleRadius + 18, bubbleCenterY - 8);
+    ctx.fillText('25 PC', bubbleCenterX + bubbleRadius * 0.5 + 14, bubbleCenterY - 8);
 
+    // Glowing Sun anchor at center (0, 0)
+    const sunGrad = ctx.createRadialGradient(
+      bubbleCenterX,
+      bubbleCenterY,
+      2,
+      bubbleCenterX,
+      bubbleCenterY,
+      28
+    );
+    sunGrad.addColorStop(0, '#ffffff');
+    sunGrad.addColorStop(0.3, '#fde047');
+    sunGrad.addColorStop(0.7, 'rgba(234, 179, 8, 0.4)');
+    sunGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = sunGrad;
+    ctx.beginPath();
+    ctx.arc(bubbleCenterX, bubbleCenterY, 28, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.font = '700 22px "Inter", sans-serif';
+    ctx.fillStyle = '#fef08a';
+    ctx.textAlign = 'center';
+    ctx.fillText('☉ SUN', bubbleCenterX, bubbleCenterY + 44);
+    ctx.restore();
+
+    starData = stars
+      .map(({ star }) => {
+        const bpRp = star.bpRp ?? 0.8;
+        const absMag = star.absoluteMagG ?? 4.5;
+        const distPc =
+          star.distancePc ??
+          (star.parallaxMas && star.parallaxMas > 0 ? 1000 / star.parallaxMas : 25);
+
+        // Radial distance from Sun out to 50 pc
+        const rNorm = Math.min(1, Math.max(0.04, Math.pow(distPc / 50, 0.72)));
+        const xNorm = (bpRp - bounds.minBpRp) / (bounds.maxBpRp - bounds.minBpRp);
+        const yNorm = (absMag - bounds.minAbsMag) / (bounds.maxAbsMag - bounds.minAbsMag);
+
+        // Map star inside the Local Bubble sphere so streams radiate gracefully to H-R diagram
+        const angleOffset = (xNorm - 0.5) * Math.PI * 0.75;
+        const decAngle = ((star.dec ?? 0) / 90) * (Math.PI * 0.35);
+
+        const skyX = bubbleCenterX + Math.sin(angleOffset) * (bubbleRadius * 0.90) * rNorm;
+        const skyY =
+          bubbleCenterY +
+          Math.sin(decAngle) * (bubbleRadius * 0.65) * rNorm -
+          (1 - rNorm) * 60;
+
+        const hrX = hrBox.left + xNorm * hrBox.width;
+        const hrY = hrBox.top + yNorm * hrBox.height;
+
+        const hex = bpRpToStarHexColor(bpRp, 'blackbody');
+        const brightnessNorm = Math.max(0, Math.min(1, (12 - absMag) / 16));
+        const isRed = bpRp >= 1.0;
+
+        return { star, skyX, skyY, hrX, hrY, hex, brightnessNorm, absMag, isRed };
+      })
+      .sort((a, b) => b.absMag - a.absMag);
+  } else {
+    // 🌌 Star Clusters: Wide sky band canopy pouring into the diagram below
+    let raSum = 0;
+    let decSum = 0;
+    for (const { star } of stars) {
+      raSum += star.ra;
+      decSum += star.dec;
+    }
+    const avgRa = stars.length > 0 ? raSum / stars.length : (preset.cone?.ra ?? 56.75);
+    const avgDec = stars.length > 0 ? decSum / stars.length : (preset.cone?.dec ?? 24.12);
+    const cosDec = Math.max(0.15, Math.cos((avgDec * Math.PI) / 180));
+
+    let maxDx = 0.001;
+    let maxDy = 0.001;
+    for (const { star } of stars) {
+      let dRa = star.ra - avgRa;
+      if (dRa > 180) dRa -= 360;
+      if (dRa < -180) dRa += 360;
+      const dx = Math.abs(dRa * cosDec);
+      const dy = Math.abs(star.dec - avgDec);
+      if (dx > maxDx) maxDx = dx;
+      if (dy > maxDy) maxDy = dy;
+    }
+
+    starData = stars
+      .map(({ star }) => {
+        const bpRp = star.bpRp ?? 0.8;
+        const absMag = star.absoluteMagG ?? 4.5;
+
+        let dRa = star.ra - avgRa;
+        if (dRa > 180) dRa -= 360;
+        if (dRa < -180) dRa += 360;
+        const normX = Math.max(-1, Math.min(1, (dRa * cosDec) / maxDx));
+        const normY = Math.max(-1, Math.min(1, (star.dec - avgDec) / maxDy));
+
+        const skyX = skyField.left + skyField.width * (0.5 + normX * 0.44);
+        const skyY = skyField.top + skyField.height * (0.5 - normY * 0.40);
+
+        const xNorm = (bpRp - bounds.minBpRp) / (bounds.maxBpRp - bounds.minBpRp);
+        const yNorm = (absMag - bounds.minAbsMag) / (bounds.maxAbsMag - bounds.minAbsMag);
+        const hrX = hrBox.left + xNorm * hrBox.width;
+        const hrY = hrBox.top + yNorm * hrBox.height;
+
+        const hex = bpRpToStarHexColor(bpRp, 'blackbody');
+        const brightnessNorm = Math.max(0, Math.min(1, (12 - absMag) / 16));
+        const isRed = bpRp >= 1.0;
+
+        return { star, skyX, skyY, hrX, hrY, hex, brightnessNorm, absMag, isRed };
+      })
+      .sort((a, b) => b.absMag - a.absMag);
+  }
+
+  // Flowing cascade strands pouring down from sky to diagram
   for (const item of starData) {
-    const alpha = Math.min(0.4, 0.08 + item.brightnessNorm * 0.3);
-    const lineWidth = Math.max(1.4, 1.2 + item.brightnessNorm * 3.5);
+    const redAlphaBoost = item.isRed ? 0.16 : 0;
+    const redWidthBoost = item.isRed ? 1.0 : 0;
+    const alpha = Math.min(0.58, 0.14 + item.brightnessNorm * 0.32 + redAlphaBoost);
+    const lineWidth = Math.max(1.6, 1.2 + item.brightnessNorm * 3.8 + redWidthBoost);
 
     ctx.save();
     ctx.strokeStyle = item.hex;
@@ -2949,15 +3060,29 @@ export function renderNightFallPoster(options: {
 
     ctx.beginPath();
     ctx.moveTo(item.skyX, item.skyY);
-    const cp1Y = item.skyY + (item.hrY - item.skyY) * 0.5;
-    const cp2Y = item.hrY - (item.hrY - item.skyY) * 0.5;
+    const cp1Y = item.skyY + (item.hrY - item.skyY) * 0.44;
+    const cp2Y = item.hrY - (item.hrY - item.skyY) * 0.44;
     ctx.bezierCurveTo(item.skyX, cp1Y, item.hrX, cp2Y, item.hrX, item.hrY);
     ctx.stroke();
     ctx.restore();
   }
 
+  // Subtle conceptual labels bridging the sky and diagram
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.font = '600 28px "JetBrains Mono", monospace';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.28)';
+  ctx.fillText(
+    isSolarVolume ? 'THE 50 PC SPHERE — WHERE THE STARS ARE' : 'THE SKY — WHERE THE STARS ARE',
+    centerX,
+    2850
+  );
+  ctx.fillText('THE DIAGRAM — WHAT THE STARS ARE', centerX, 3500);
+  ctx.restore();
+
+  // Pinpoint stars at sky position and diagram position
   for (const item of starData) {
-    const dotRadius = Math.max(2.5, 2.0 + item.brightnessNorm * 5.5);
+    const dotRadius = Math.max(2.5, 2.0 + item.brightnessNorm * 5.5 + (item.isRed ? 1.2 : 0));
 
     ctx.fillStyle = item.hex;
     ctx.beginPath();
@@ -2990,27 +3115,35 @@ export function renderNightFallPoster(options: {
     }
   }
 
-  // Bottom Left: Series metadata & archive info
+  // Bottom Left: Series metadata & conceptual explanation
   ctx.textAlign = 'left';
-  ctx.font = '600 26px "JetBrains Mono", monospace';
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
-  ctx.fillText('SKYSCOUT ASTRONOMICAL FINE-ART POSTER SERIES', hrBox.left, 6500);
+  ctx.font = '400 32px "Inter", sans-serif';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.70)';
+  if (isSolarVolume) {
+    ctx.fillText('Our local stellar neighborhood within 50 pc (163 ly) of the Sun,', 520, 6420);
+    ctx.fillText('poured into the H–R diagram below: hot at left, bright at top.', 520, 6475);
+  } else {
+    ctx.fillText('The cluster as it sits in the sky, poured into the H–R diagram below.', 520, 6420);
+    ctx.fillText('Each strand is one star: hot at left, bright at top, ×10 per step.', 520, 6475);
+  }
 
   ctx.font = '400 22px "JetBrains Mono", monospace';
   ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
   ctx.fillText(
     'NASA IPAC 2MASS ALL-SKY SURVEY · U.S. PUBLIC DOMAIN · 300 DPI FINE-ART PRINT',
-    hrBox.left,
+    520,
     6545
   );
 
-  ctx.textAlign = 'left';
-  ctx.font = '400 29px "Inter", sans-serif';
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
-  const rightX = centerX + 400;
-  ctx.fillText('Every star falls from its place in the sky to its place', rightX, 6500);
-  ctx.fillText('on the H–R diagram: hot at left, bright at top,', rightX, 6545);
-  ctx.fillText('×10 per step. Strand width follows luminosity.', rightX, 6590);
+  // Bottom Right: Star count & luminosity legend
+  ctx.textAlign = 'right';
+  ctx.font = '600 24px "JetBrains Mono", monospace';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+  ctx.fillText('ILLUSTRATIVE DATA AND SKY POSITIONS', width - 520, 6420);
+
+  ctx.font = '500 22px "JetBrains Mono", monospace';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.40)';
+  ctx.fillText(`${starData.length} MODELED STARS — STRAND WIDTH = LOG LUMINOSITY`, width - 520, 6465);
 }
 
 /**
@@ -3042,7 +3175,7 @@ export function renderFineArtPoster(options: {
 /**
  * Render an ultra-high resolution 18×24" fine-art poster (5400 × 7200 px at 300 DPI)
  * featuring the classic Wikipedia / Richard Powell H–R diagram on top
- * and an editorial Clean Museum Edition typography block at the bottom.
+ * and an editorial typography block at the bottom.
  */
 export function renderGalleryPosterCanvas(options: {
   ctx: CanvasRenderingContext2D;
@@ -3700,7 +3833,7 @@ export function getEtsyListingCopy(
 
 Where celestial position meets stellar physics.
 
-This museum-grade astronomical chart presents two interconnected perspectives of ${isSolar ? 'our local solar neighborhood out to 50 pc (163 ly)' : `${formattedTitle} (${preset.category.toLowerCase()} in ${constellation})`}:
+This astronomical chart presents two interconnected perspectives of ${isSolar ? 'our local solar neighborhood out to 50 pc (163 ly)' : `${formattedTitle} (${preset.category.toLowerCase()} in ${constellation})`}:
 • Top: True celestial sky coordinates showing where the stars sit in the night sky.
 • Bottom: Hertzsprung–Russell diagram sorting cluster stars by true surface temperature (hot blue at left) and luminosity (brilliant at top).
 • Delicate luminous threads join the brightest iconic stars directly between their sky location and their physical astrophysical state.
@@ -3740,6 +3873,136 @@ This is an INSTANT DIGITAL DOWNLOAD. No physical print or frame will be shipped.
     suggestedPriceDigital: '$8.90',
     suggestedPricePhysical: '$34.00',
   };
+}
+
+/**
+ * Renders the official 500 × 500 px Etsy shop icon / logo to a canvas.
+ */
+export function drawEtsyShopLogo(ctx: CanvasRenderingContext2D, width = 500, height = 500): void {
+  ctx.fillStyle = '#030509';
+  ctx.fillRect(0, 0, width, height);
+
+  const rad = ctx.createRadialGradient(width / 2, height / 2, 40, width / 2, height / 2, width / 2);
+  rad.addColorStop(0, '#0c1527');
+  rad.addColorStop(1, '#020408');
+  ctx.fillStyle = rad;
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.strokeStyle = 'rgba(56, 189, 248, 0.25)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(width / 2, height / 2, 190, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(250, 50); ctx.lineTo(250, 70);
+  ctx.moveTo(250, 430); ctx.lineTo(250, 450);
+  ctx.moveTo(50, 250); ctx.lineTo(70, 250);
+  ctx.moveTo(430, 250); ctx.lineTo(450, 250);
+  ctx.stroke();
+
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.moveTo(250, 175);
+  ctx.quadraticCurveTo(250, 250, 325, 250);
+  ctx.quadraticCurveTo(250, 250, 250, 325);
+  ctx.quadraticCurveTo(250, 250, 175, 250);
+  ctx.quadraticCurveTo(250, 250, 250, 175);
+  ctx.fill();
+
+  ctx.fillStyle = '#38bdf8';
+  ctx.beginPath();
+  ctx.arc(250, 250, 6, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+  ctx.font = '700 22px "Inter", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('STARPLOT', 250, 395);
+
+  ctx.fillStyle = 'rgba(56, 189, 248, 0.7)';
+  ctx.font = '500 11px "JetBrains Mono", monospace';
+  ctx.fillText('ASTRONOMICAL ATELIER', 250, 415);
+}
+
+/**
+ * Renders the official 1200 × 300 px Etsy big shop banner to a canvas.
+ */
+export function drawEtsyShopBanner(ctx: CanvasRenderingContext2D, width = 1200, height = 300): void {
+  const bg = ctx.createLinearGradient(0, 0, width, height);
+  bg.addColorStop(0, '#020306');
+  bg.addColorStop(0.5, '#060a14');
+  bg.addColorStop(1, '#030509');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '800 44px "Inter", sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('STARPLOT', 90, 125);
+
+  ctx.fillStyle = '#38bdf8';
+  ctx.font = '600 16px "JetBrains Mono", monospace';
+  ctx.fillText('ASTRONOMICAL FINE-ART PRINTS', 90, 160);
+
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+  ctx.font = '400 14px "Inter", sans-serif';
+  ctx.fillText('Celestial sky positions bridged with astrophysics.', 90, 195);
+  ctx.fillText('Gaia DR3 & NASA 2MASS Survey Data · 300 DPI Vector Precision', 90, 220);
+
+  const skyX = 990;
+  const skyY = 150;
+  const skyR = 85;
+
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(skyX, skyY, skyR, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Diagonal luminous star strands across right field (matching conceptual spec)
+  const strandColors = ['#f59e0b', '#fbbf24', '#f8fafc', '#93c5fd', '#60a5fa', '#f59e0b', '#facc15'];
+  for (let i = 0; i < 32; i++) {
+    const angle = (i / 32) * Math.PI * 2;
+    const r = 18 + Math.sin(i * 3.7) * 55;
+    const sx = skyX + Math.cos(angle) * r;
+    const sy = skyY + Math.sin(angle) * r;
+
+    const ex = 680 + (i % 8) * 45;
+    const ey = 35 + (i / 32) * 230;
+
+    const col = strandColors[i % strandColors.length];
+    const isHeroStrand = i === 4 || i === 12 || i === 20;
+
+    ctx.save();
+    ctx.strokeStyle = col;
+    ctx.globalAlpha = isHeroStrand ? 0.75 : 0.22;
+    ctx.lineWidth = isHeroStrand ? 2.8 : 1.2;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.bezierCurveTo(sx - 140, sy - 20, ex + 140, ey + 20, ex, ey);
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.fillStyle = col;
+    ctx.globalAlpha = 0.85;
+    ctx.beginPath();
+    ctx.arc(sx, sy, isHeroStrand ? 3.0 : 1.8, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Conceptual guiding labels inspired by Image 1
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.font = '600 12px "JetBrains Mono", monospace';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.50)';
+  ctx.fillText('THE SKY — WHERE THE STARS ARE', 840, 95);
+  ctx.fillText('THE DIAGRAM — WHAT THE STARS ARE', 840, 215);
+  ctx.restore();
+
+  ctx.globalAlpha = 1.0;
 }
 
 

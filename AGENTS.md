@@ -14,6 +14,7 @@ Guidelines and constraints for AI coding assistants working in the SkyScout repo
 - **Orchestration**: Turborepo (`turbo run build`, `turbo run test`, `turbo run typecheck`).
 - **Package Builds**: `tsup` targeting dual ESM (`.js`) and CommonJS (`.cjs`) with declaration maps (`.d.ts`).
 - **Testing**: Hermetic unit tests using `vitest`.
+- **CI / Build Execution**: Do **NOT** run `npm run build`, `npm test`, `turbo run test`, `turbo run build`, or typecheck commands locally during development turns. GitHub CI automatically handles verification on push/PR. Skipping local builds/tests keeps agent turns fast and responsive.
 
 ## 3. Client Package Standards (`packages/*`)
 - **Environment Agnostic**: Never sniff `process.env` or `import.meta.env` inside client packages. Tokens and endpoints must be passed explicitly via configuration objects.
@@ -22,6 +23,7 @@ Guidelines and constraints for AI coding assistants working in the SkyScout repo
 
 ## 4. Engineering & Communication Style
 - **Practicality First**: Focus on features, data visualization, and astronomy workflows. Avoid over-engineering, unnecessary abstractions, or hyper-fixating on micro-optimizations.
+- **No Marketing Fluff or Fake Exaggerations**: Never use phrases like "museum grade", "museum quality", "revolutionary", "stunning", or similar hyperbole in code, UI copy, listing descriptions, or communication. Use grounded, direct, and factual scientific descriptions (e.g., "astronomical chart", "fine-art print", "vector star map").
 - **Conciseness**: Keep explanations direct and avoid unnecessary fluff.
 - **Clickable Links**: Reference files and code symbols using GitHub-style markdown links (`file:///...`).
 

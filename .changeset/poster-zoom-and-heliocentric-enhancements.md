@@ -19,3 +19,8 @@ Enhance StarPlot with interactive poster zoom/pan, authentic Solar Neighborhood 
   - Elevated poster titles, constellation, distance, and age metadata to the top of all poster themes (`Two Maps`, `Night Fall`, `Star Quilt`).
   - Added top-right header featuring catalog code and celestial coordinates (or solar bubble indicator).
   - Removed survey image cutout preloading to eliminate 404 network requests and maintain pure vector rendering at 300 DPI.
+- **Etsy Quick Launch Kit**:
+  - Added in-app `🛍️ Etsy Launch Kit` modal on the poster view.
+  - Generates realistic lifestyle room mockups in natural oak frames (`2400 × 2000 px`).
+  - Generates macro detail crop mockups (`2000 × 2000 px`) highlighting glowing strands and typography.
+  - Provides 1-click copy for SEO-optimized title, 13 exact-match Etsy search tags, full description, and suggested pricing.
