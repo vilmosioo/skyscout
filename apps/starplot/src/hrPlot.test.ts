@@ -7,19 +7,24 @@ import {
   computeConstantRadiusCurve,
   computeStarCanvasRadius,
   downloadGalleryPoster,
+  drawCornerTelescopePlate,
+  FAMOUS_CLUSTER_STARS,
   fetchCustomConeStars,
   fetchTargetStars,
   findClosestStarAtPoint,
   formatPosterTitle,
   generateClusterFallbackStars,
   generateClusterPreviewPoints,
+  getClusterCutoutUrl,
   getGaiaStarExternalUrls,
   getStarPhysicalDetails,
+  hexToRgba,
   HR_BOUNDS,
   panHrBounds,
   POSTER_THEMES,
   renderFineArtPoster,
   renderGalleryPosterCanvas,
+  renderTwoMapsPoster,
   type PosterThemeId,
   searchCatalogPresets,
   starToCanvasXY,
@@ -403,6 +408,7 @@ describe('fetchTargetStars Live Dispatch & Local Caching', () => {
         rotate: vi.fn(),
         clip: vi.fn(),
         rect: vi.fn(),
+        drawImage: vi.fn(),
         setLineDash: vi.fn(),
         measureText: vi.fn(() => ({ width: 120 })),
         createLinearGradient: vi.fn(() => ({ addColorStop: vi.fn() })),
@@ -492,6 +498,146 @@ describe('fetchTargetStars Live Dispatch & Local Caching', () => {
       // Flowing luminous strands
       expect(ctx.bezierCurveTo).toHaveBeenCalled();
       expect(ctx.arc).toHaveBeenCalled();
+    });
+
+    it('generates public-domain cutout URLs via HipsClient with correct survey and coordinates', () => {
+      const pleiades = TARGET_PRESETS.find((p) => p.id === 'pleiades')!;
+      const url2Mass = getClusterCutoutUrl(pleiades, '2mass');
+      const urlDss2 = getClusterCutoutUrl(pleiades, 'dss2');
+
+      expect(url2Mass).toContain('CDS%2FP%2F2MASS%2Fcolor');
+      expect(url2Mass).toContain(`ra=${pleiades.cone!.ra.toFixed(6)}`);
+      expect(urlDss2).toContain('CDS%2FP%2FDSS2%2Fcolor');
+    });
+
+    it('renders archival corner telescope plate with scientific reticle brackets and crosshairs', () => {
+      const pleiades = TARGET_PRESETS.find((p) => p.id === 'pleiades')!;
+      const ctx = createMockCtx();
+      const mockImage = {} as CanvasImageSource;
+
+      drawCornerTelescopePlate({
+        ctx,
+        x: 4030,
+        y: 360,
+        size: 680,
+        image: mockImage,
+        preset: pleiades,
+        themeIsLight: false,
+      });
+
+      expect(ctx.strokeRect).toHaveBeenCalledWith(4030, 360, 680, 680);
+      expect(ctx.drawImage).toHaveBeenCalledWith(mockImage, 4030, 360, 680, 680);
+      expect(ctx.fillText).toHaveBeenCalledWith('PHOTOGRAPHIC SURVEY PLATE', 4030, 340);
+      expect(ctx.fillText).toHaveBeenCalledWith('NASA IPAC 2MASS ALL-SKY INFRARED', 4030, 360 + 680 + 32);
+    });
+
+    it('highlights famous or brightest stars with glowing strands, radial halos, and callout labels in Two Maps poster', () => {
+      const pleiadesPreset = TARGET_PRESETS.find((p) => p.id === 'pleiades')!;
+      expect(FAMOUS_CLUSTER_STARS['pleiades']).toBeDefined();
+      expect(FAMOUS_CLUSTER_STARS['pleiades'][0].name).toBe('Alcyone');
+
+      const ctx = createMockCtx();
+      renderTwoMapsPoster({
+        ctx,
+        width: 5400,
+        height: 7200,
+        bounds: HR_BOUNDS,
+        stars: [
+          {
+            star: {
+              ...sampleStar,
+              sourceId: 'star-alcyone',
+              absoluteMagG: -3.2,
+              bpRp: -0.09,
+            },
+            sourceLabel: 'Pleiades',
+          },
+          {
+            star: {
+              ...sampleStar,
+              sourceId: 'star-atlas',
+              absoluteMagG: -2.8,
+              bpRp: -0.05,
+            },
+            sourceLabel: 'Pleiades',
+          },
+          {
+            star: {
+              ...sampleStar,
+              sourceId: 'star-faint',
+              absoluteMagG: 5.5,
+              bpRp: 0.95,
+            },
+            sourceLabel: 'Pleiades',
+          },
+        ],
+        primaryPreset: pleiadesPreset,
+      });
+
+      // Verifies radial gradient creation for halos
+      expect(ctx.createRadialGradient).toHaveBeenCalled();
+      // Verifies hero title rendered at the top of the poster (y=400)
+      expect(ctx.fillText).toHaveBeenCalledWith(formatPosterTitle(pleiadesPreset), 650, 400);
+      // Verifies star name callout label for Alcyone
+      expect(ctx.fillText).toHaveBeenCalledWith('Alcyone', expect.any(Number), expect.any(Number));
+      // Verifies authentic poster description text
+      expect(ctx.fillText).toHaveBeenCalledWith(
+        '(bright at top). Lines join the brightest stars.',
+        expect.any(Number),
+        expect.any(Number)
+      );
+      // Verifies hexToRgba helper
+      expect(hexToRgba('#60a5fa', 0.5)).toBe('rgba(96, 165, 250, 0.5)');
+    });
+
+    it('renders heliocentric Solar Neighborhood sphere centered on the Sun for solar-50pc', () => {
+      const solarPreset = TARGET_PRESETS.find((p) => p.id === 'solar-50pc')!;
+      expect(solarPreset).toBeDefined();
+
+      const ctx = createMockCtx();
+      renderTwoMapsPoster({
+        ctx,
+        width: 5400,
+        height: 7200,
+        bounds: HR_BOUNDS,
+        stars: [
+          {
+            star: {
+              ...sampleStar,
+              sourceId: 'star-sirius',
+              distancePc: 2.64,
+              absoluteMagG: 1.43,
+              bpRp: -0.03,
+            },
+            sourceLabel: 'Solar Volume',
+          },
+          {
+            star: {
+              ...sampleStar,
+              sourceId: 'star-vega',
+              distancePc: 7.68,
+              absoluteMagG: 0.58,
+              bpRp: 0.0,
+            },
+            sourceLabel: 'Solar Volume',
+          },
+        ],
+        primaryPreset: solarPreset,
+      });
+
+      // Verifies Sun anchor label & heliocentric subtitle
+      expect(ctx.fillText).toHaveBeenCalledWith('☉ Sun (0 pc)', expect.any(Number), expect.any(Number));
+      expect(ctx.fillText).toHaveBeenCalledWith(
+        'THE SOLAR NEIGHBORHOOD — 50 PC SPHERE CENTERED ON THE SUN',
+        expect.any(Number),
+        expect.any(Number)
+      );
+      // Verifies tailored solar neighborhood description
+      expect(ctx.fillText).toHaveBeenCalledWith(
+        'Above, our local stellar neighborhood mapped from the',
+        expect.any(Number),
+        expect.any(Number)
+      );
     });
   });
 });

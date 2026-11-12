@@ -10,10 +10,13 @@ import {
   generateClusterFallbackStars,
   generateClusterPreviewPoints,
   getCachedNasaStars,
+  getEtsyListingCopy,
   HR_BOUNDS,
   POSTER_THEMES,
   type PosterThemeId,
+  renderDetailCropMockup,
   renderFineArtPoster,
+  renderFramedRoomMockup,
   TARGET_PRESETS,
   type TargetPreset,
 } from './hrPlot';
@@ -60,14 +63,30 @@ function ClusterCard({
 
     if (themeId === 'two-maps') {
       // 🌌 Two Maps Thumbnail: Sky Disc above + H-R Box below + Connecting Bezier Strands
-      const skyCenter = { x: 180, y: 125 };
-      const skyR = 75;
+      const isSolar = preset.id === 'solar-50pc';
 
       // Top title
-      ctx.font = '600 9.5px "JetBrains Mono", monospace';
+      ctx.textAlign = 'left';
+      ctx.font = '700 13px "Inter", sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(formatPosterTitle(preset), 24, 26);
+
+      ctx.font = '500 7px "JetBrains Mono", monospace';
       ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
-      ctx.textAlign = 'center';
-      ctx.fillText('THE SKY — WHERE THE STARS ARE', skyCenter.x, 28);
+      ctx.fillText(
+        isSolar ? '50 PC SPHERE · SUN AT CENTER' : `${preset.category.toUpperCase()} · ${preset.constellation?.toUpperCase() ?? 'MILKY WAY'}`,
+        24,
+        38
+      );
+
+      // Top right catalog code
+      ctx.textAlign = 'right';
+      ctx.font = '600 8.5px "JetBrains Mono", monospace';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+      ctx.fillText(preset.catalogCode ?? preset.shortName, 336, 26);
+
+      const skyCenter = { x: 180, y: 135 };
+      const skyR = 70;
 
       // Sky Disc
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
@@ -76,19 +95,33 @@ function ClusterCard({
       ctx.arc(skyCenter.x, skyCenter.y, skyR, 0, Math.PI * 2);
       ctx.stroke();
 
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
-      ctx.beginPath();
-      ctx.arc(skyCenter.x, skyCenter.y, skyR * 0.5, 0, Math.PI * 2);
-      ctx.stroke();
+      if (isSolar) {
+        // Range ring at 25 pc
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.beginPath();
+        ctx.arc(skyCenter.x, skyCenter.y, skyR * 0.5, 0, Math.PI * 2);
+        ctx.stroke();
 
-      // Crosshair
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-      ctx.beginPath();
-      ctx.moveTo(skyCenter.x - 6, skyCenter.y);
-      ctx.lineTo(skyCenter.x + 6, skyCenter.y);
-      ctx.moveTo(skyCenter.x, skyCenter.y - 6);
-      ctx.lineTo(skyCenter.x, skyCenter.y + 6);
-      ctx.stroke();
+        // Sun dot at center
+        ctx.fillStyle = '#facc15';
+        ctx.beginPath();
+        ctx.arc(skyCenter.x, skyCenter.y, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.beginPath();
+        ctx.arc(skyCenter.x, skyCenter.y, skyR * 0.5, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Crosshair
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.beginPath();
+        ctx.moveTo(skyCenter.x - 6, skyCenter.y);
+        ctx.lineTo(skyCenter.x + 6, skyCenter.y);
+        ctx.moveTo(skyCenter.x, skyCenter.y - 6);
+        ctx.lineTo(skyCenter.x, skyCenter.y + 6);
+        ctx.stroke();
+      }
 
       // Bottom Diagram Box
       const hrBox = { left: 40, top: 270, width: 280, height: 155 };
@@ -120,14 +153,27 @@ function ClusterCard({
         const bpRp = star.bpRp ?? 0.8;
         const absMag = star.absoluteMagG ?? 4.5;
 
-        // True Sky Coordinates projection
-        const dx = ((star.ra - baseRa) * cosDec) / radiusDeg;
-        const dy = (star.dec - baseDec) / radiusDeg;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const rClamped = dist <= 1 ? dist : 1 / (1 + (dist - 1) * 0.4);
-        const angle = Math.atan2(dy, dx);
-        const sx = skyCenter.x + Math.cos(angle) * rClamped * (skyR - 4);
-        const sy = skyCenter.y - Math.sin(angle) * rClamped * (skyR - 4);
+        let sx: number;
+        let sy: number;
+        if (isSolar) {
+          const distPc =
+            star.distancePc ??
+            (star.parallaxMas && star.parallaxMas > 0 ? 1000 / star.parallaxMas : 25);
+          const rNorm = Math.min(1, Math.max(0.02, distPc / 50));
+          const rPixels = rNorm * (skyR - 6);
+          const angle = (star.ra * Math.PI) / 180;
+          sx = skyCenter.x + Math.cos(angle) * rPixels;
+          sy = skyCenter.y - Math.sin(angle) * rPixels;
+        } else {
+          // True Sky Coordinates projection
+          const dx = ((star.ra - baseRa) * cosDec) / radiusDeg;
+          const dy = (star.dec - baseDec) / radiusDeg;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const rClamped = dist <= 1 ? dist : 1 / (1 + (dist - 1) * 0.4);
+          const angle = Math.atan2(dy, dx);
+          sx = skyCenter.x + Math.cos(angle) * rClamped * (skyR - 4);
+          sy = skyCenter.y - Math.sin(angle) * rClamped * (skyR - 4);
+        }
 
         // True H-R Coordinates projection
         const xNorm = Math.max(0, Math.min(1, (bpRp - HR_BOUNDS.minBpRp) / (HR_BOUNDS.maxBpRp - HR_BOUNDS.minBpRp)));
@@ -136,14 +182,19 @@ function ClusterCard({
         const hy = hrBox.top + yNorm * hrBox.height;
 
         const color = bpRpToStarHexColor(bpRp, 'blackbody');
-        return { sx, sy, hx, hy, color, absMag };
+        return { sx, sy, hx, hy, color, absMag, star };
       });
 
-      // Connecting cubic Bezier strands
-      ctx.lineWidth = 0.9;
+      // Identify top 4 brightest stars to highlight with glowing strands & halos
+      const sortedBright = [...mapped].sort((a, b) => a.absMag - b.absMag);
+      const topBrightSet = new Set(sortedBright.slice(0, 4));
+
+      // Connecting cubic Bezier strands for standard stars
+      ctx.lineWidth = 0.8;
       for (const pt of mapped) {
+        if (topBrightSet.has(pt)) continue;
         ctx.strokeStyle = pt.color;
-        ctx.globalAlpha = 0.18;
+        ctx.globalAlpha = 0.16;
         ctx.beginPath();
         ctx.moveTo(pt.sx, pt.sy);
         const cp1Y = pt.sy + (pt.hy - pt.sy) * 0.45;
@@ -152,16 +203,67 @@ function ClusterCard({
         ctx.stroke();
       }
 
-      // Star dots
+      // Connecting cubic Bezier strands for highlighted bright stars (glowing dual beam!)
+      for (const pt of topBrightSet) {
+        const cp1Y = pt.sy + (pt.hy - pt.sy) * 0.45;
+        const cp2Y = pt.hy - (pt.hy - pt.sy) * 0.45;
+
+        // Outer glow
+        ctx.strokeStyle = pt.color;
+        ctx.globalAlpha = 0.38;
+        ctx.lineWidth = 3.6;
+        ctx.beginPath();
+        ctx.moveTo(pt.sx, pt.sy);
+        ctx.bezierCurveTo(pt.sx, cp1Y, pt.hx, cp2Y, pt.hx, pt.hy);
+        ctx.stroke();
+
+        // Core line
+        ctx.strokeStyle = '#ffffff';
+        ctx.globalAlpha = 0.9;
+        ctx.lineWidth = 1.3;
+        ctx.stroke();
+      }
+
+      // Star dots for standard stars
       for (const pt of mapped) {
-        ctx.globalAlpha = 0.85;
+        if (topBrightSet.has(pt)) continue;
+        ctx.globalAlpha = 0.8;
         ctx.fillStyle = pt.color;
-        const r = pt.absMag < 0 ? 2.0 : pt.absMag < 3.5 ? 1.4 : 1.0;
+        const r = pt.absMag < 2.0 ? 1.5 : pt.absMag < 4.5 ? 1.1 : 0.8;
         ctx.beginPath();
         ctx.arc(pt.sx, pt.sy, r, 0, Math.PI * 2);
         ctx.fill();
         ctx.beginPath();
         ctx.arc(pt.hx, pt.hy, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Highlighted bright star dots (halo + white core!)
+      for (const pt of topBrightSet) {
+        // Halo in sky
+        ctx.globalAlpha = 0.45;
+        ctx.fillStyle = pt.color;
+        ctx.beginPath();
+        ctx.arc(pt.sx, pt.sy, 5.0, 0, Math.PI * 2);
+        ctx.fill();
+        // White core in sky
+        ctx.globalAlpha = 1.0;
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(pt.sx, pt.sy, 2.0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Halo in diagram
+        ctx.globalAlpha = 0.45;
+        ctx.fillStyle = pt.color;
+        ctx.beginPath();
+        ctx.arc(pt.hx, pt.hy, 5.0, 0, Math.PI * 2);
+        ctx.fill();
+        // White core in diagram
+        ctx.globalAlpha = 1.0;
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(pt.hx, pt.hy, 2.0, 0, Math.PI * 2);
         ctx.fill();
       }
       ctx.globalAlpha = 1.0;
@@ -384,6 +486,10 @@ function ClusterCard({
 function HomeView() {
   const [activeTheme, setActiveTheme] = useState<PosterThemeId>('two-maps');
 
+  const [showEtsyModal, setShowEtsyModal] = useState<boolean>(false);
+  const [isExportingEtsy, setIsExportingEtsy] = useState<boolean>(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
   return (
     <div className="site-wrapper">
       <header className="site-header">
@@ -437,12 +543,176 @@ function ClusterPosterView() {
   }, [id]);
 
   const [activeTheme, setActiveTheme] = useState<PosterThemeId>('two-maps');
+
+  const [showEtsyModal, setShowEtsyModal] = useState<boolean>(false);
+  const [isExportingEtsy, setIsExportingEtsy] = useState<boolean>(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
   const nasaClient = useMemo(() => new NasaClient(), []);
   const [stars, setStars] = useState<GaiaStar[]>(() => {
     return getCachedNasaStars(preset.id, 1000) ?? generateClusterFallbackStars(preset);
   });
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const frameRef = useRef<HTMLDivElement | null>(null);
+
+  // Interactive Zoom & Pan State for inspecting poster details
+  const [zoom, setZoom] = useState<number>(1);
+  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const dragStartRef = useRef<{ mouseX: number; mouseY: number; panX: number; panY: number }>({
+    mouseX: 0,
+    mouseY: 0,
+    panX: 0,
+    panY: 0,
+  });
+  const touchStartRef = useRef<{ dist: number; touchX: number; touchY: number } | null>(null);
+
+  useEffect(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  }, [id, activeTheme]);
+
+  const handleZoomIn = () => {
+    setZoom((prev) => Math.min(5, Number((prev * 1.35).toFixed(2))));
+  };
+
+  const handleZoomOut = () => {
+    setZoom((prev) => {
+      const next = Math.max(1, Number((prev / 1.35).toFixed(2)));
+      if (next <= 1) setPan({ x: 0, y: 0 });
+      return next;
+    });
+  };
+
+  const handleResetZoom = () => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  };
+
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const frame = frameRef.current;
+    if (!frame) return;
+
+    const rect = frame.getBoundingClientRect();
+    const cursorX = e.clientX - rect.left - rect.width / 2;
+    const cursorY = e.clientY - rect.top - rect.height / 2;
+
+    const factor = e.deltaY < 0 ? 1.2 : 0.833;
+    setZoom((prevZoom) => {
+      const nextZoom = Math.max(1, Math.min(6, Number((prevZoom * factor).toFixed(2))));
+      if (nextZoom <= 1.02) {
+        setPan({ x: 0, y: 0 });
+        return 1;
+      }
+
+      const scaleChange = nextZoom / prevZoom;
+      setPan((prevPan) => {
+        const nextPanX = cursorX - scaleChange * (cursorX - prevPan.x);
+        const nextPanY = cursorY - scaleChange * (cursorY - prevPan.y);
+        const maxPanX = (rect.width * (nextZoom - 1)) / 2;
+        const maxPanY = (rect.height * (nextZoom - 1)) / 2;
+        return {
+          x: Math.max(-maxPanX, Math.min(maxPanX, nextPanX)),
+          y: Math.max(-maxPanY, Math.min(maxPanY, nextPanY)),
+        };
+      });
+
+      return nextZoom;
+    });
+  };
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    setIsDragging(true);
+    dragStartRef.current = {
+      mouseX: e.clientX,
+      mouseY: e.clientY,
+      panX: pan.x,
+      panY: pan.y,
+    };
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isDragging) return;
+    const dx = e.clientX - dragStartRef.current.mouseX;
+    const dy = e.clientY - dragStartRef.current.mouseY;
+
+    const frame = frameRef.current;
+    const rect = frame?.getBoundingClientRect();
+    const width = rect?.width ?? 580;
+    const height = rect?.height ?? (width * 4) / 3;
+
+    const maxPanX = (width * (zoom - 1)) / 2;
+    const maxPanY = (height * (zoom - 1)) / 2;
+
+    setPan({
+      x: Math.max(-maxPanX, Math.min(maxPanX, dragStartRef.current.panX + dx)),
+      y: Math.max(-maxPanY, Math.min(maxPanY, dragStartRef.current.panY + dy)),
+    });
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleDoubleClick = () => {
+    if (zoom > 1.2) {
+      handleResetZoom();
+    } else {
+      setZoom(2.5);
+    }
+  };
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 1) {
+      dragStartRef.current = {
+        mouseX: e.touches[0].clientX,
+        mouseY: e.touches[0].clientY,
+        panX: pan.x,
+        panY: pan.y,
+      };
+      setIsDragging(true);
+    } else if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      touchStartRef.current = {
+        dist: Math.sqrt(dx * dx + dy * dy),
+        touchX: pan.x,
+        touchY: pan.y,
+      };
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 1 && isDragging) {
+      const dx = e.touches[0].clientX - dragStartRef.current.mouseX;
+      const dy = e.touches[0].clientY - dragStartRef.current.mouseY;
+      const frame = frameRef.current;
+      const rect = frame?.getBoundingClientRect();
+      const width = rect?.width ?? 580;
+      const height = rect?.height ?? (width * 4) / 3;
+      const maxPanX = (width * (zoom - 1)) / 2;
+      const maxPanY = (height * (zoom - 1)) / 2;
+      setPan({
+        x: Math.max(-maxPanX, Math.min(maxPanX, dragStartRef.current.panX + dx)),
+        y: Math.max(-maxPanY, Math.min(maxPanY, dragStartRef.current.panY + dy)),
+      });
+    } else if (e.touches.length === 2 && touchStartRef.current) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const ratio = dist / touchStartRef.current.dist;
+      setZoom((prev) => Math.max(1, Math.min(6, prev * ratio)));
+      touchStartRef.current.dist = dist;
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+    touchStartRef.current = null;
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -574,8 +844,77 @@ function ClusterPosterView() {
       </div>
 
       <main className="poster-canvas-stage">
-        <div className={`canvas-frame ${themeInfo.isLight ? 'light-frame' : 'dark-frame'}`}>
-          <canvas ref={canvasRef} className="poster-canvas" />
+        <div
+          ref={frameRef}
+          className={`canvas-frame ${themeInfo.isLight ? 'light-frame' : 'dark-frame'} ${zoom > 1 ? 'is-zoomed' : ''} ${isDragging ? 'is-dragging' : ''}`}
+          onWheel={handleWheel}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onDoubleClick={handleDoubleClick}
+        >
+          <div
+            className="canvas-zoom-wrapper"
+            style={{
+              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+              transformOrigin: 'center center',
+              transition: isDragging ? 'none' : 'transform 0.15s ease-out',
+            }}
+          >
+            <canvas ref={canvasRef} className="poster-canvas" />
+          </div>
+
+          {/* Floating Zoom & Pan Toolbar */}
+          <div className="zoom-toolbar">
+            <button
+              type="button"
+              className="zoom-tool-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleZoomOut();
+              }}
+              disabled={zoom <= 1}
+              title="Zoom Out"
+            >
+              −
+            </button>
+            <span className="zoom-indicator">{Math.round(zoom * 100)}%</span>
+            <button
+              type="button"
+              className="zoom-tool-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleZoomIn();
+              }}
+              disabled={zoom >= 5}
+              title="Zoom In"
+            >
+              +
+            </button>
+            {zoom > 1 && (
+              <button
+                type="button"
+                className="zoom-tool-btn reset-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleResetZoom();
+                }}
+                title="Reset View"
+              >
+                ⟲ Reset
+              </button>
+            )}
+          </div>
+
+          {zoom === 1 && (
+            <div className="zoom-hint-pill">
+              Scroll or double-click to zoom &amp; inspect
+            </div>
+          )}
         </div>
 
         <div className="poster-specs-bar">
