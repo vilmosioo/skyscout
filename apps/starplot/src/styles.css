@@ -303,6 +303,7 @@ a {
 }
 
 .canvas-frame {
+  position: relative;
   width: 100%;
   max-width: 580px;
   aspect-ratio: 3 / 4;
@@ -311,12 +312,114 @@ a {
   border-radius: 4px;
   box-shadow: 0 24px 60px -10px rgba(0, 0, 0, 0.85);
   overflow: hidden;
+  user-select: none;
+  touch-action: none;
+  cursor: grab;
+}
+
+.canvas-frame.is-zoomed {
+  cursor: grab;
+}
+
+.canvas-frame.is-dragging {
+  cursor: grabbing !important;
+}
+
+.canvas-zoom-wrapper {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  will-change: transform;
 }
 
 .poster-canvas {
   width: 100%;
   height: 100%;
   display: block;
+  pointer-events: none;
+}
+
+.zoom-toolbar {
+  position: absolute;
+  bottom: 14px;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 20px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+  z-index: 10;
+  pointer-events: auto;
+}
+
+.zoom-tool-btn {
+  background: transparent;
+  border: none;
+  color: #f8fafc;
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 700;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.zoom-tool-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.18);
+  color: #38bdf8;
+}
+
+.zoom-tool-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.zoom-tool-btn.reset-btn {
+  width: auto;
+  padding: 0 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.zoom-indicator {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  padding: 0 4px;
+  min-width: 38px;
+  text-align: center;
+}
+
+.zoom-hint-pill {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+  pointer-events: none;
+  opacity: 0.85;
+  transition: opacity 0.3s ease;
+  z-index: 10;
 }
 
 .poster-specs-bar {
@@ -498,3 +601,5 @@ a {
   border: 1px solid rgba(255, 255, 255, 0.15);
   box-shadow: 0 24px 60px -10px rgba(0, 0, 0, 0.85);
 }
+
+

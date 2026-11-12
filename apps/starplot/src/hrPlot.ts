@@ -1,5 +1,7 @@
 import { bpRpToEffectiveTempK, bpRpToSpectralClass, formatDms, formatHms } from '@skyscout/core';
 import { NasaClient, type TwoMassStar } from '@skyscout/nasa-client';
+import { HipsClient } from '@skyscout/hips-client';
+import { SkyviewClient } from '@skyscout/skyview-client';
 import type {
   GaiaClient,
   GaiaConeSearchOptions,
@@ -1752,10 +1754,29 @@ export function generateClusterFallbackStars(preset: TargetPreset): GaiaStar[] {
     { dra: -0.25, ddec: 0.02, magOffset: -3.2 },
   ];
 
+  // Iconic local stars within 50 pc centered on the Sun
+  const solarLocalStars = [
+    { name: 'Sirius', ra: 101.287, dec: -16.716, distPc: 2.64, bpRp: -0.03, absMag: 1.43 },
+    { name: 'Alpha Centauri', ra: 219.902, dec: -60.833, distPc: 1.34, bpRp: 0.71, absMag: 4.38 },
+    { name: 'Vega', ra: 279.234, dec: 38.784, distPc: 7.68, bpRp: 0.00, absMag: 0.58 },
+    { name: 'Arcturus', ra: 213.915, dec: 19.182, distPc: 11.26, bpRp: 1.23, absMag: -0.31 },
+    { name: 'Procyon', ra: 114.825, dec: 5.225, distPc: 3.51, bpRp: 0.42, absMag: 2.68 },
+    { name: 'Altair', ra: 297.696, dec: 8.868, distPc: 5.13, bpRp: 0.22, absMag: 2.21 },
+  ];
+
   return points.map((pt, idx) => {
-    const plx = basePlx * (1 + (rand() - 0.5) * 0.05);
-    let photG = pt.absoluteMagG + distMod + (rand() - 0.5) * 0.08;
-    const roundedDistPc = Math.round(distPc);
+    let starDistPc = distPc;
+    if (preset.id === 'solar-50pc') {
+      if (idx < solarLocalStars.length) {
+        starDistPc = solarLocalStars[idx].distPc;
+      } else {
+        starDistPc = 1.3 + Math.pow(rand(), 0.6) * 48.7;
+      }
+    }
+    const plx = (1000 / starDistPc) * (1 + (rand() - 0.5) * 0.04);
+    const starDistMod = 5 * Math.log10(Math.max(1, starDistPc)) - 5;
+    let photG = pt.absoluteMagG + starDistMod + (rand() - 0.5) * 0.08;
+    const roundedDistPc = Number(starDistPc.toFixed(1));
     const distLy = Number((roundedDistPc * 3.26156).toFixed(1));
     const logLum = Number(((4.74 - pt.absoluteMagG) / 2.5).toFixed(3));
     const teffK = bpRpToEffectiveTempK(pt.bpRp);
@@ -1763,7 +1784,15 @@ export function generateClusterFallbackStars(preset: TargetPreset): GaiaStar[] {
     let ra = baseRa;
     let dec = baseDec;
 
-    if (preset.id === 'double-cluster') {
+    if (preset.id === 'solar-50pc') {
+      if (idx < solarLocalStars.length) {
+        ra = solarLocalStars[idx].ra;
+        dec = solarLocalStars[idx].dec;
+      } else {
+        ra = rand() * 360;
+        dec = (Math.asin(rand() * 2 - 1) * 180) / Math.PI;
+      }
+    } else if (preset.id === 'double-cluster') {
       // Iconic twin cores of NGC 869 (west) and NGC 884 (east) separated by ~0.45 deg
       const isEast = idx % 2 === 0;
       const coreOffsetRa = isEast ? 0.22 : -0.22;
@@ -1925,6 +1954,280 @@ export function drawRoundedRect(
   }
 }
 
+const defaultHipsClient = new HipsClient();
+const defaultSkyviewClient = new SkyviewClient();
+
+/**
+ * Returns a direct public-domain astronomical image cutout URL for a star cluster preset.
+ * Defaults to NASA 2MASS near-infrared color composite (100% U.S. Public Domain).
+ */
+export function getClusterCutoutUrl(
+  preset: TargetPreset,
+  survey: '2mass' | 'dss2' = '2mass',
+  pixelSize = 1200
+): string {
+  const ra = preset.cone?.ra ?? 56.75;
+  const dec = preset.cone?.dec ?? 24.12;
+  const fovDeg = Math.max(0.35, (preset.cone?.radiusDeg ?? 1.2) * 2.2);
+
+  if (survey === '2mass') {
+    return defaultHipsClient.getCutoutUrl({
+      ra,
+      dec,
+      fovDeg,
+      width: pixelSize,
+      height: pixelSize,
+      hips: 'CDS/P/2MASS/color',
+      format: 'jpg',
+    });
+  }
+
+  return defaultHipsClient.getCutoutUrl({
+    ra,
+    dec,
+    fovDeg,
+    width: pixelSize,
+    height: pixelSize,
+    hips: 'CDS/P/DSS2/color',
+    format: 'jpg',
+  });
+}
+
+/**
+ * Famous / bright stars catalog mapping for presets.
+ * Highlights iconic named stars (e.g. Alcyone, Mirfak, κ Crucis, BM Scorpii, Sirius, Vega)
+ * with radial halos, reticle rings, luminous connecting strands, and typographic callouts.
+ */
+export interface FamousStarDef {
+  name: string;
+  designation?: string;
+  spectralType?: string;
+  description?: string;
+}
+
+export const FAMOUS_CLUSTER_STARS: Record<string, FamousStarDef[]> = {
+  'pleiades': [
+    { name: 'Alcyone', designation: 'η Tauri', spectralType: 'B7 IIIe', description: 'Brightest star in Pleiades' },
+    { name: 'Atlas', designation: '27 Tauri', spectralType: 'B8 III', description: 'Father of the Pleiades' },
+    { name: 'Electra', designation: '17 Tauri', spectralType: 'B6 IIIe', description: 'Third-brightest Pleiad' },
+    { name: 'Maia', designation: '20 Tauri', spectralType: 'B8 III', description: 'Fourth-brightest Pleiad' },
+    { name: 'Merope', designation: '23 Tauri', spectralType: 'B6 IVev', description: 'Illuminates Merope Nebula' },
+    { name: 'Taygeta', designation: '19 Tauri', spectralType: 'B6 V', description: 'Triple blue-white system' },
+    { name: 'Pleione', designation: '28 Tauri', spectralType: 'B8 Vne', description: 'Rapidly rotating shell star' },
+  ],
+  'alpha-persei': [
+    { name: 'Mirfak', designation: 'α Persei', spectralType: 'F5 Ib', description: 'Yellow-white supergiant anchor' },
+    { name: 'δ Persei', designation: '51 Persei', spectralType: 'B5 III', description: 'Luminous blue giant member' },
+    { name: 'ψ Persei', designation: '41 Persei', spectralType: 'B5 Ve', description: 'Rapidly spinning Be star' },
+    { name: 'σ Persei', designation: '35 Persei', spectralType: 'B7 V', description: 'Hot main sequence member' },
+    { name: '29 Persei', designation: 'HIP 14892', spectralType: 'B3 V', description: 'Upper main sequence star' },
+  ],
+  'jewel-box': [
+    { name: 'κ Crucis', designation: 'CD-59 4459', spectralType: 'M2 Iab', description: 'Brilliant ruby red supergiant' },
+    { name: 'HD 111904', designation: 'HIP 62894', spectralType: 'B9 Ia', description: 'Luminous blue supergiant' },
+    { name: 'HD 111990', designation: 'HIP 62953', spectralType: 'B1/B2 Ib', description: 'Brilliant B-type supergiant' },
+    { name: 'HD 111613', designation: 'HIP 62732', spectralType: 'B9.5 Iab', description: 'Hot luminous giant' },
+    { name: 'DU Crucis', designation: 'HD 111973', spectralType: 'M2 Ib', description: 'Red supergiant variable' },
+  ],
+  'm6': [
+    { name: 'BM Scorpii', designation: 'HD 160371', spectralType: 'K2.5 Ib-II', description: 'Orange supergiant anchor' },
+    { name: 'HD 160578', designation: 'HIP 86666', spectralType: 'B4 V', description: 'Hot blue main sequence star' },
+    { name: 'HD 160529', designation: 'HIP 86624', spectralType: 'A2 Ia', description: 'Luminous hypergiant candidate' },
+    { name: 'HD 160167', designation: 'HIP 86450', spectralType: 'B8 III', description: 'Evolved B-type giant' },
+  ],
+  'solar-50pc': [
+    { name: 'Sirius', designation: 'α CMa', spectralType: 'A1 V', description: 'Brightest star in Earth night sky' },
+    { name: 'Vega', designation: 'α Lyr', spectralType: 'A0 V', description: 'Photometric calibration anchor' },
+    { name: 'Arcturus', designation: 'α Boo', spectralType: 'K1.5 III', description: 'Brightest northern red giant' },
+    { name: 'Alpha Centauri', designation: 'α Cen A', spectralType: 'G2 V', description: 'Nearest solar twin to Earth' },
+    { name: 'Procyon', designation: 'α CMi', spectralType: 'F5 IV-V', description: 'Nearby subgiant with WD companion' },
+    { name: 'Altair', designation: 'α Aql', spectralType: 'A7 V', description: 'Rapidly rotating oblateness star' },
+  ],
+  'double-cluster': [
+    { name: 'RS Persei', designation: 'HD 14488', spectralType: 'M4.5 Iab', description: 'Massive red supergiant' },
+    { name: 'HD 14143', designation: 'HIP 10795', spectralType: 'B2 Ia', description: 'Luminous blue supergiant' },
+    { name: 'HD 14818', designation: 'HIP 11274', spectralType: 'B2 Ia', description: 'Perseus OB1 supergiant' },
+    { name: 'HD 14433', designation: 'HIP 11020', spectralType: 'A1 Ia', description: 'Extreme white supergiant' },
+    { name: 'V500 Persei', designation: 'HD 13956', spectralType: 'B1 Ib', description: 'High-mass OB supergiant' },
+  ],
+  'ngc-6231': [
+    { name: 'HD 152248', designation: 'V1007 Sco', spectralType: 'O7.5 III + O7', description: 'Colliding-wind O-type binary' },
+    { name: 'HD 152236', designation: 'ζ¹ Scorpii', spectralType: 'B1.5 Ia+', description: 'Luminous blue hypergiant' },
+    { name: 'HD 152408', designation: 'WR 79a', spectralType: 'WN7 / O-type', description: 'Extreme stellar wind giant' },
+    { name: 'HD 152234', designation: 'HIP 82670', spectralType: 'B0.5 Ia', description: 'OB association supergiant' },
+    { name: 'HD 152219', designation: 'V1003 Sco', spectralType: 'O9.5 IV', description: 'Hot massive turnoff star' },
+  ],
+  'hyades': [
+    { name: 'Ain', designation: 'ε Tauri', spectralType: 'K0 III', description: 'Northern Eye of the Bull' },
+    { name: 'Hyadum I', designation: 'γ Tauri', spectralType: 'K0 III', description: 'Evolved red clump giant' },
+    { name: 'Hyadum II', designation: 'δ¹ Tauri', spectralType: 'K0 III', description: 'Second Hyades giant anchor' },
+    { name: 'θ² Tauri', designation: '77 Tauri', spectralType: 'A7 III', description: 'Luminous A-type subgiant' },
+    { name: 'θ¹ Tauri', designation: '78 Tauri', spectralType: 'K0 III', description: 'Spectroscopic binary giant' },
+  ],
+  'praesepe': [
+    { name: 'ε Cancri', designation: '41 Cancri', spectralType: 'A5m', description: 'Central Beehive A-type member' },
+    { name: 'Asellus Borealis', designation: 'γ Cancri', spectralType: 'A1 IV', description: 'Northern donkey star' },
+    { name: 'Asellus Australis', designation: 'δ Cancri', spectralType: 'K0 III', description: 'Southern donkey star; red giant' },
+    { name: 'HD 73598', designation: 'HIP 42527', spectralType: 'K0 III', description: 'Evolved clump giant' },
+  ],
+  'm11': [
+    { name: 'HD 174512', designation: 'HIP 92507', spectralType: 'K0 II-III', description: 'Brightest cluster giant (mag 8.5)' },
+    { name: 'HD 174567', designation: 'HIP 92534', spectralType: 'B8 III', description: 'Hot turnoff giant' },
+    { name: 'HD 174403', designation: 'HIP 92455', spectralType: 'B9 V', description: 'Upper main sequence star' },
+  ],
+  'm7': [
+    { name: 'HD 162586', designation: 'HIP 87548', spectralType: 'G8 III', description: 'Brightest yellow giant' },
+    { name: 'HD 162374', designation: 'HIP 87460', spectralType: 'B6 V', description: 'Hot blue member' },
+    { name: 'HD 162189', designation: 'HIP 87383', spectralType: 'B9.5 V', description: 'Main sequence star' },
+  ],
+  'ic-2602': [
+    { name: 'θ Carinae', designation: 'HIP 52419', spectralType: 'B0.5 Vp', description: 'Brightest star in Southern Pleiades' },
+    { name: 'HD 93194', designation: 'HIP 52502', spectralType: 'B5 Vn', description: 'Blue fast-rotating star' },
+    { name: 'HD 92938', designation: 'HIP 52370', spectralType: 'B3 V', description: 'Hot upper main sequence member' },
+  ],
+  'm35': [
+    { name: 'HD 41996', designation: 'HIP 29196', spectralType: 'G0 Ib/II', description: 'Yellow supergiant anchor' },
+    { name: 'HD 41940', designation: 'HIP 29158', spectralType: 'B7 III', description: 'Luminous blue giant' },
+    { name: 'HD 41980', designation: 'HIP 29188', spectralType: 'B8 V', description: 'Upper main sequence star' },
+  ],
+  'm47': [
+    { name: 'HD 60997', designation: 'HIP 37050', spectralType: 'K3 II', description: 'Bright orange giant' },
+    { name: 'HD 60855', designation: 'HIP 36981', spectralType: 'B2 V', description: 'Hot blue turnoff star' },
+    { name: 'HD 61068', designation: 'HIP 37088', spectralType: 'B3 V', description: 'Main sequence B star' },
+  ],
+  'm67': [
+    { name: 'HD 75707', designation: 'HIP 43574', spectralType: 'K0 III', description: 'Red Giant Branch tip' },
+    { name: 'HD 75638', designation: 'HIP 43538', spectralType: 'F0 IV', description: 'Subgiant turnoff star' },
+    { name: 'HD 75682', designation: 'HIP 43564', spectralType: 'G8 III', description: 'Evolved clump giant' },
+  ],
+  'm4': [
+    { name: 'HD 147888', designation: 'HIP 80474', spectralType: 'B3/B4 V', description: 'Bright early-type star' },
+    { name: '17 Scorpii', designation: 'HIP 80079', spectralType: 'A0 V', description: 'Bright Scorpius member' },
+  ],
+  'omega-centauri': [
+    { name: 'ROA 24', designation: 'HIP 65474', spectralType: 'K3 Ib', description: 'Brightest Red Giant Branch tip' },
+    { name: 'Feige 29', designation: 'HIP 64007', spectralType: 'sdB', description: 'Hot blue horizontal branch star' },
+  ],
+};
+
+export function hexToRgba(hex: string, alpha: number): string {
+  const clean = hex.replace('#', '');
+  if (clean.length === 3) {
+    const r = parseInt(clean[0] + clean[0], 16) || 255;
+    const g = parseInt(clean[1] + clean[1], 16) || 255;
+    const b = parseInt(clean[2] + clean[2], 16) || 255;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  const r = parseInt(clean.substring(0, 2), 16) || 255;
+  const g = parseInt(clean.substring(2, 4), 16) || 255;
+  const b = parseInt(clean.substring(4, 6), 16) || 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+/**
+ * Draws an archival scientific telescope plate cutout in the corner of fine-art posters,
+ * complete with corner reticle brackets, viewfinder crosshair, and NASA public-domain attribution.
+ */
+export function drawCornerTelescopePlate(options: {
+  ctx: CanvasRenderingContext2D;
+  x: number;
+  y: number;
+  size: number;
+  image?: CanvasImageSource | null;
+  preset: TargetPreset;
+  themeIsLight?: boolean;
+}): void {
+  const { ctx, x, y, size, image, preset, themeIsLight = false } = options;
+
+  const textColor = themeIsLight ? '#292524' : '#ffffff';
+  const subtextColor = themeIsLight ? '#78716c' : 'rgba(255, 255, 255, 0.55)';
+  const frameBorderColor = themeIsLight ? 'rgba(0, 0, 0, 0.2)' : 'rgba(255, 255, 255, 0.25)';
+  const tickColor = themeIsLight ? 'rgba(0, 0, 0, 0.5)' : 'rgba(255, 255, 255, 0.65)';
+  const crossColor = themeIsLight ? 'rgba(0, 0, 0, 0.25)' : 'rgba(255, 255, 255, 0.3)';
+
+  ctx.save();
+
+  // Header label above plate
+  ctx.textAlign = 'left';
+  ctx.font = '600 24px "JetBrains Mono", monospace';
+  ctx.fillStyle = textColor;
+  ctx.fillText('PHOTOGRAPHIC SURVEY PLATE', x, y - 20);
+
+  // Background backing
+  ctx.fillStyle = '#010204';
+  ctx.fillRect(x, y, size, size);
+
+  // Photographic survey plate image
+  if (image) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, y, size, size);
+    ctx.clip();
+    ctx.drawImage(image, x, y, size, size);
+    ctx.restore();
+  } else {
+    // Elegant starry placeholder when plate image is loading or offline
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.font = '500 20px "JetBrains Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('NASA 2MASS ALL-SKY', x + size / 2, y + size / 2 - 10);
+    ctx.fillText('PLATE PREVIEW', x + size / 2, y + size / 2 + 18);
+  }
+
+  // Thin outer frame
+  ctx.strokeStyle = frameBorderColor;
+  ctx.lineWidth = 2.0;
+  ctx.strokeRect(x, y, size, size);
+
+  // Scientific corner brackets
+  const tickLen = 22;
+  ctx.strokeStyle = tickColor;
+  ctx.lineWidth = 2.8;
+  ctx.beginPath();
+  // Top-left
+  ctx.moveTo(x, y + tickLen);
+  ctx.lineTo(x, y);
+  ctx.lineTo(x + tickLen, y);
+  // Top-right
+  ctx.moveTo(x + size - tickLen, y);
+  ctx.lineTo(x + size, y);
+  ctx.lineTo(x + size, y + tickLen);
+  // Bottom-left
+  ctx.moveTo(x, y + size - tickLen);
+  ctx.lineTo(x, y + size);
+  ctx.lineTo(x + tickLen, y + size);
+  // Bottom-right
+  ctx.moveTo(x + size - tickLen, y + size);
+  ctx.lineTo(x + size, y + size);
+  ctx.lineTo(x + size, y + size - tickLen);
+  ctx.stroke();
+
+  // Center viewfinder crosshair
+  const midX = x + size / 2;
+  const midY = y + size / 2;
+  ctx.strokeStyle = crossColor;
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(midX - 16, midY);
+  ctx.lineTo(midX + 16, midY);
+  ctx.moveTo(midX, midY - 16);
+  ctx.lineTo(midX, midY + 16);
+  ctx.stroke();
+
+  // Captions below plate
+  ctx.textAlign = 'left';
+  ctx.font = '500 20px "JetBrains Mono", monospace';
+  ctx.fillStyle = subtextColor;
+  ctx.fillText('NASA IPAC 2MASS ALL-SKY INFRARED', x, y + size + 32);
+
+  ctx.font = '400 18px "JetBrains Mono", monospace';
+  ctx.fillStyle = subtextColor;
+  const fovText = preset.cone?.radiusDeg ? `FOV ~${(preset.cone.radiusDeg * 2).toFixed(1)}°` : 'ALL-SKY 50 PC';
+  ctx.fillText(`${fovText} · U.S. PUBLIC DOMAIN`, x, y + size + 58);
+
+  ctx.restore();
+}
+
 /**
  * Theme 1: "Two Maps"
  * Circular celestial sky disc on top, H–R diagram box on bottom, connected by luminous bezier threads.
@@ -1936,8 +2239,9 @@ export function renderTwoMapsPoster(options: {
   bounds: HrBounds;
   stars: Array<{ star: GaiaStar; sourceLabel: string }>;
   primaryPreset?: TargetPreset | null;
+  skyPlateImage?: CanvasImageSource | null;
 }): void {
-  const { ctx, width = 5400, height = 7200, bounds, stars, primaryPreset } = options;
+  const { ctx, width = 5400, height = 7200, bounds, stars, primaryPreset, skyPlateImage } = options;
 
   // 1. Pitch black background
   ctx.fillStyle = '#030509';
@@ -1946,9 +2250,51 @@ export function renderTwoMapsPoster(options: {
   const centerX = width / 2;
   const preset = primaryPreset ?? TARGET_PRESETS[0];
 
+  const distStr =
+    preset.distancePcApprox >= 1000
+      ? `${(preset.distancePcApprox / 1000).toFixed(1)} kpc`
+      : `${preset.distancePcApprox} pc`;
+
+  const isSolarVolume = preset.id === 'solar-50pc' || preset.category === 'Solar Volume';
+
+  // Hero Title & Metadata at TOP of the poster
+  ctx.textAlign = 'left';
+  ctx.font = '800 120px "Inter", sans-serif';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(formatPosterTitle(preset), 650, 400);
+
+  ctx.font = '500 32px "JetBrains Mono", monospace';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+  ctx.fillText(
+    `${preset.category.toUpperCase()} · ${preset.constellation?.toUpperCase() ?? 'MILKY WAY'} · ~${distStr.toUpperCase()} · ~${preset.age.toUpperCase()}`,
+    650,
+    470
+  );
+
+  ctx.font = '500 22px "JetBrains Mono", monospace';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.38)';
+  ctx.fillText(
+    'NASA IPAC 2MASS ALL-SKY SURVEY · U.S. PUBLIC DOMAIN · 300 DPI FINE-ART EDITION',
+    650,
+    525
+  );
+
+  // Top Right: Catalog code & coordinates
+  ctx.textAlign = 'right';
+  ctx.font = '700 48px "JetBrains Mono", monospace';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+  ctx.fillText(preset.catalogCode ?? preset.shortName, width - 650, 400);
+
+  ctx.font = '500 28px "JetBrains Mono", monospace';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+  const rightCoord = isSolarVolume
+    ? 'SOLAR BUBBLE · 50 PC SPHERE'
+    : `RA ${preset.cone ? formatHms(preset.cone.ra) : ''} · DEC ${preset.cone ? formatDms(preset.cone.dec) : ''}`;
+  ctx.fillText(rightCoord, width - 650, 460);
+
   // 2. Top Sky Disc ("WHERE THE STARS ARE")
-  const skyCenter = { x: centerX, y: 1850 };
-  const skyRadius = 1150;
+  const skyCenter = { x: centerX, y: 1900 };
+  const skyRadius = 1120;
 
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
   ctx.lineWidth = 2.5;
@@ -1956,24 +2302,71 @@ export function renderTwoMapsPoster(options: {
   ctx.arc(skyCenter.x, skyCenter.y, skyRadius, 0, Math.PI * 2);
   ctx.stroke();
 
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.arc(skyCenter.x, skyCenter.y, skyRadius * 0.5, 0, Math.PI * 2);
-  ctx.stroke();
+  if (isSolarVolume) {
+    // Concentric distance range rings from the Sun out to 50 pc
+    const rings = [
+      { r: skyRadius * 0.2, label: '10 pc (33 ly)' },
+      { r: skyRadius * 0.5, label: '25 pc (82 ly)' },
+      { r: skyRadius * 0.8, label: '40 pc (130 ly)' },
+    ];
+    ctx.font = '400 22px "JetBrains Mono", monospace';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+    ctx.textAlign = 'left';
+    for (const ring of rings) {
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(skyCenter.x, skyCenter.y, ring.r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillText(ring.label, skyCenter.x + ring.r + 12, skyCenter.y - 8);
+    }
 
-  ctx.beginPath();
-  ctx.moveTo(skyCenter.x - 20, skyCenter.y);
-  ctx.lineTo(skyCenter.x + 20, skyCenter.y);
-  ctx.moveTo(skyCenter.x, skyCenter.y - 20);
-  ctx.lineTo(skyCenter.x, skyCenter.y + 20);
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
-  ctx.stroke();
+    // Glowing Sun anchor at center (0, 0)
+    const sunGrad = ctx.createRadialGradient(skyCenter.x, skyCenter.y, 2, skyCenter.x, skyCenter.y, 32);
+    sunGrad.addColorStop(0, '#ffffff');
+    sunGrad.addColorStop(0.3, '#fde047');
+    sunGrad.addColorStop(0.7, 'rgba(234, 179, 8, 0.4)');
+    sunGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = sunGrad;
+    ctx.beginPath();
+    ctx.arc(skyCenter.x, skyCenter.y, 32, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(skyCenter.x, skyCenter.y, 5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.font = '700 24px "Inter", sans-serif';
+    ctx.fillStyle = '#fef08a';
+    ctx.textAlign = 'center';
+    ctx.fillText('☉ Sun (0 pc)', skyCenter.x, skyCenter.y + 36);
+  } else {
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(skyCenter.x, skyCenter.y, skyRadius * 0.5, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(skyCenter.x - 20, skyCenter.y);
+    ctx.lineTo(skyCenter.x + 20, skyCenter.y);
+    ctx.moveTo(skyCenter.x, skyCenter.y - 20);
+    ctx.lineTo(skyCenter.x, skyCenter.y + 20);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+    ctx.stroke();
+  }
 
   ctx.font = '500 32px "JetBrains Mono", monospace';
   ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
   ctx.textAlign = 'center';
-  ctx.fillText('THE SKY — WHERE THE STARS ARE', centerX, 3180);
+  ctx.fillText(
+    isSolarVolume
+      ? 'THE SOLAR NEIGHBORHOOD — 50 PC SPHERE CENTERED ON THE SUN'
+      : 'THE SKY — WHERE THE STARS ARE',
+    centerX,
+    3180
+  );
 
   // 3. Bottom H–R Diagram Box ("WHAT THE STARS ARE")
   const hrBox: PlotBox = {
@@ -2054,14 +2447,29 @@ export function renderTwoMapsPoster(options: {
     .map(({ star }) => {
       const bpRp = star.bpRp ?? 0.8;
       const absMag = star.absoluteMagG ?? 4.5;
-      const dx = ((star.ra - baseRa) * cosDec) / radiusDeg;
-      const dy = (star.dec - baseDec) / radiusDeg;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      const rClamped = dist <= 1 ? dist : 1 / (1 + (dist - 1) * 0.4);
-      const angle = Math.atan2(dy, dx);
 
-      const skyX = skyCenter.x + Math.cos(angle) * rClamped * (skyRadius - 40);
-      const skyY = skyCenter.y - Math.sin(angle) * rClamped * (skyRadius - 40);
+      let skyX: number;
+      let skyY: number;
+
+      if (isSolarVolume) {
+        // Heliocentric radial distance projection (Sun at center, physical distance 0..50 pc)
+        const distPc =
+          star.distancePc ??
+          (star.parallaxMas && star.parallaxMas > 0 ? 1000 / star.parallaxMas : 25);
+        const rNorm = Math.min(1, Math.max(0.02, distPc / 50));
+        const rPixels = rNorm * (skyRadius - 45);
+        const angle = (star.ra * Math.PI) / 180;
+        skyX = skyCenter.x + Math.cos(angle) * rPixels;
+        skyY = skyCenter.y - Math.sin(angle) * rPixels;
+      } else {
+        const dx = ((star.ra - baseRa) * cosDec) / radiusDeg;
+        const dy = (star.dec - baseDec) / radiusDeg;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const rClamped = dist <= 1 ? dist : 1 / (1 + (dist - 1) * 0.4);
+        const angle = Math.atan2(dy, dx);
+        skyX = skyCenter.x + Math.cos(angle) * rClamped * (skyRadius - 40);
+        skyY = skyCenter.y - Math.sin(angle) * rClamped * (skyRadius - 40);
+      }
 
       const xNorm = (bpRp - bounds.minBpRp) / (bounds.maxBpRp - bounds.minBpRp);
       const yNorm = (absMag - bounds.minAbsMag) / (bounds.maxAbsMag - bounds.minAbsMag);
@@ -2075,9 +2483,29 @@ export function renderTwoMapsPoster(options: {
     })
     .sort((a, b) => b.absMag - a.absMag);
 
+  // 5. Partition stars into standard background and highlighted bright/famous stars
+  const brightestSorted = [...starData].sort((a, b) => a.absMag - b.absMag);
+  const highlightCount = Math.min(6, brightestSorted.length);
+  const brightestSlice = brightestSorted.slice(0, highlightCount);
+  const highlightStarSet = new Set(brightestSlice.map((s) => s.star));
+
+  const famousDefs = FAMOUS_CLUSTER_STARS[preset.id] ?? [];
+  const highlightedItems = brightestSlice.map((item, idx) => {
+    const famous = famousDefs[idx];
+    const phys = getStarPhysicalDetails(item.star);
+    const name = famous?.name ?? `${phys.evolutionaryStage} #${idx + 1}`;
+    const spectralType = famous?.spectralType ?? phys.evolutionaryStage;
+    const subtitle = famous?.designation
+      ? `${famous.designation} · ${spectralType}`
+      : `${spectralType} · MG ${item.absMag.toFixed(1)}`;
+    return { ...item, name, subtitle };
+  });
+
+  // Standard connecting strands (gossamer threads)
   for (const item of starData) {
-    const alpha = Math.min(0.35, 0.08 + item.brightnessNorm * 0.25);
-    const lineWidth = Math.max(1.2, 1.0 + item.brightnessNorm * 2.2);
+    if (highlightStarSet.has(item.star)) continue;
+    const alpha = Math.min(0.22, 0.05 + item.brightnessNorm * 0.16);
+    const lineWidth = Math.max(1.0, 0.8 + item.brightnessNorm * 1.6);
 
     ctx.save();
     ctx.strokeStyle = item.hex;
@@ -2093,8 +2521,38 @@ export function renderTwoMapsPoster(options: {
     ctx.restore();
   }
 
+  // Highlighted luminous connecting strands (brilliant double glow!)
+  for (const item of highlightedItems) {
+    const cp1Y = item.skyY + (item.hrY - item.skyY) * 0.45;
+    const cp2Y = item.hrY - (item.hrY - item.skyY) * 0.45;
+
+    ctx.save();
+    // Outer wide glow
+    ctx.strokeStyle = item.hex;
+    ctx.globalAlpha = 0.24;
+    ctx.lineWidth = 16;
+    ctx.beginPath();
+    ctx.moveTo(item.skyX, item.skyY);
+    ctx.bezierCurveTo(item.skyX, cp1Y, item.hrX, cp2Y, item.hrX, item.hrY);
+    ctx.stroke();
+
+    // Medium glow
+    ctx.globalAlpha = 0.58;
+    ctx.lineWidth = 6;
+    ctx.stroke();
+
+    // Sharp luminous white core
+    ctx.strokeStyle = '#ffffff';
+    ctx.globalAlpha = 0.95;
+    ctx.lineWidth = 2.4;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Standard star dots
   for (const item of starData) {
-    const dotRadius = Math.max(2.2, 2.0 + item.brightnessNorm * 5.0);
+    if (highlightStarSet.has(item.star)) continue;
+    const dotRadius = Math.max(2.2, 1.8 + item.brightnessNorm * 4.2);
 
     ctx.fillStyle = item.hex;
     ctx.beginPath();
@@ -2106,39 +2564,156 @@ export function renderTwoMapsPoster(options: {
     ctx.fill();
   }
 
-  const distStr =
-    preset.distancePcApprox >= 1000
-      ? `${(preset.distancePcApprox / 1000).toFixed(1)} kpc`
-      : `${preset.distancePcApprox} pc`;
+  // Highlighted bright star dots (radial halos, reticle rings, white cores, and leader labels)
+  for (let i = 0; i < highlightedItems.length; i++) {
+    const item = highlightedItems[i];
 
+    // --- In Sky Disc ("THE SKY") ---
+    // Multi-layer radial glow halo
+    const skyHalo = ctx.createRadialGradient(item.skyX, item.skyY, 2, item.skyX, item.skyY, 52);
+    skyHalo.addColorStop(0, hexToRgba(item.hex, 0.95));
+    skyHalo.addColorStop(0.25, hexToRgba(item.hex, 0.5));
+    skyHalo.addColorStop(0.65, hexToRgba(item.hex, 0.15));
+    skyHalo.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = skyHalo;
+    ctx.beginPath();
+    ctx.arc(item.skyX, item.skyY, 52, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Reticle target ring
+    ctx.save();
+    ctx.strokeStyle = item.hex;
+    ctx.globalAlpha = 0.8;
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.arc(item.skyX, item.skyY, 18, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // White core pinpoint
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(item.skyX, item.skyY, 6.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Radial leader line & label in Sky Disc
+    const dX = item.skyX - skyCenter.x;
+    const dY = item.skyY - skyCenter.y;
+    const dist = Math.sqrt(dX * dX + dY * dY);
+    const normX = dist > 1 ? dX / dist : 1;
+    const normY = dist > 1 ? dY / dist : 0;
+    const isRight = normX >= 0;
+
+    const leaderStartX = item.skyX + normX * 18;
+    const leaderStartY = item.skyY + normY * 18;
+    const elbowX = item.skyX + (isRight ? 46 : -46);
+    const elbowY = item.skyY + normY * 28;
+    const shelfX = item.skyX + (isRight ? 95 : -95);
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.moveTo(leaderStartX, leaderStartY);
+    ctx.lineTo(elbowX, elbowY);
+    ctx.lineTo(shelfX, elbowY);
+    ctx.stroke();
+
+    ctx.textAlign = isRight ? 'left' : 'right';
+    ctx.font = '700 24px "Inter", sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(item.name, shelfX + (isRight ? 10 : -10), elbowY - 6);
+
+    ctx.font = '500 18px "JetBrains Mono", monospace';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+    ctx.fillText(item.subtitle, shelfX + (isRight ? 10 : -10), elbowY + 16);
+    ctx.restore();
+
+    // --- In Diagram ("THE DIAGRAM") ---
+    const hrHalo = ctx.createRadialGradient(item.hrX, item.hrY, 2, item.hrX, item.hrY, 44);
+    hrHalo.addColorStop(0, hexToRgba(item.hex, 0.95));
+    hrHalo.addColorStop(0.25, hexToRgba(item.hex, 0.5));
+    hrHalo.addColorStop(0.65, hexToRgba(item.hex, 0.15));
+    hrHalo.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = hrHalo;
+    ctx.beginPath();
+    ctx.arc(item.hrX, item.hrY, 44, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Reticle ring
+    ctx.save();
+    ctx.strokeStyle = item.hex;
+    ctx.globalAlpha = 0.8;
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.arc(item.hrX, item.hrY, 16, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // White core pinpoint
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(item.hrX, item.hrY, 6.0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Diagram leader line & label
+    const hrIsRight = item.hrX < hrBox.left + hrBox.width * 0.65;
+    const hrElbowY = item.hrY - 32;
+    const hrElbowX = item.hrX + (hrIsRight ? 45 : -45);
+    const hrShelfX = item.hrX + (hrIsRight ? 85 : -85);
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(item.hrX + (hrIsRight ? 16 : -16), item.hrY - 12);
+    ctx.lineTo(hrElbowX, hrElbowY);
+    ctx.lineTo(hrShelfX, hrElbowY);
+    ctx.stroke();
+
+    ctx.textAlign = hrIsRight ? 'left' : 'right';
+    ctx.font = '700 22px "Inter", sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(item.name, hrShelfX + (hrIsRight ? 8 : -8), hrElbowY - 5);
+
+    ctx.font = '500 17px "JetBrains Mono", monospace';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+    ctx.fillText(
+      `MG ${item.absMag.toFixed(1)} · BP-RP ${(item.star.bpRp ?? 0.8).toFixed(2)}`,
+      hrShelfX + (hrIsRight ? 8 : -8),
+      hrElbowY + 16
+    );
+    ctx.restore();
+  }
+
+  // Bottom Left: Series metadata & archive info
   ctx.textAlign = 'left';
-  ctx.font = '700 108px "Inter", sans-serif';
-  ctx.fillStyle = '#ffffff';
-  ctx.fillText(formatPosterTitle(preset), hrBox.left, 6520);
+  ctx.font = '600 26px "JetBrains Mono", monospace';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+  ctx.fillText('SKYSCOUT ASTRONOMICAL FINE-ART POSTER SERIES', hrBox.left, 6500);
 
-  ctx.font = '400 32px "JetBrains Mono", monospace';
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+  ctx.font = '400 22px "JetBrains Mono", monospace';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
   ctx.fillText(
-    `${preset.category.toUpperCase()} · ${preset.constellation?.toUpperCase() ?? 'MILKY WAY'} · ~${distStr.toUpperCase()} · ~${preset.age.toUpperCase()}`,
+    'ESA GAIA DR3 ASTROMETRY · STELLAR POPULATION ARCHIVE · 300 DPI',
     hrBox.left,
-    6590
+    6545
   );
 
-  ctx.font = '500 24px "JetBrains Mono", monospace';
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-  ctx.fillText(
-    'NASA IPAC 2MASS ALL-SKY SURVEY · U.S. PUBLIC DOMAIN · 300 DPI FINE-ART EDITION',
-    hrBox.left,
-    6650
-  );
-
+  // Bottom Right: Explanation text
   ctx.textAlign = 'left';
   ctx.font = '400 29px "Inter", sans-serif';
   ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
   const rightX = centerX + 400;
-  ctx.fillText('Above, the stars as they sit in the sky. Below, the same', rightX, 6520);
-  ctx.fillText('stars sorted by temperature (hot at left) and luminosity', rightX, 6565);
-  ctx.fillText('(bright at top). Luminous threads join the stars.', rightX, 6610);
+  if (isSolarVolume) {
+    ctx.fillText('Above, our local stellar neighborhood mapped from the', rightX, 6500);
+    ctx.fillText('Sun at center out to 50 pc (163 ly). Below, the same', rightX, 6545);
+    ctx.fillText('stars sorted by temperature and luminosity. Lines join brightest.', rightX, 6590);
+  } else {
+    ctx.fillText('Above, the stars as they sit in the sky. Below, the same', rightX, 6500);
+    ctx.fillText('stars sorted by temperature (hot at left) and luminosity', rightX, 6545);
+    ctx.fillText('(bright at top). Lines join the brightest stars.', rightX, 6590);
+  }
 }
 
 /**
@@ -2280,8 +2855,9 @@ export function renderNightFallPoster(options: {
   bounds: HrBounds;
   stars: Array<{ star: GaiaStar; sourceLabel: string }>;
   primaryPreset?: TargetPreset | null;
+  skyPlateImage?: CanvasImageSource | null;
 }): void {
-  const { ctx, width = 5400, height = 7200, bounds, stars, primaryPreset } = options;
+  const { ctx, width = 5400, height = 7200, bounds, stars, primaryPreset, skyPlateImage } = options;
 
   ctx.fillStyle = '#010306';
   ctx.fillRect(0, 0, width, height);
@@ -2289,10 +2865,37 @@ export function renderNightFallPoster(options: {
   const centerX = width / 2;
   const preset = primaryPreset ?? TARGET_PRESETS[0];
 
+  const distStr =
+    preset.distancePcApprox >= 1000
+      ? `${(preset.distancePcApprox / 1000).toFixed(1)} kpc`
+      : `${preset.distancePcApprox} pc`;
+
+  // Hero Title & Metadata at TOP of poster
   ctx.textAlign = 'left';
-  ctx.font = '500 44px "JetBrains Mono", monospace';
+  ctx.font = '800 120px "Inter", sans-serif';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(formatPosterTitle(preset), 520, 400);
+
+  ctx.font = '500 32px "JetBrains Mono", monospace';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+  ctx.fillText(
+    `${preset.category.toUpperCase()} · ${preset.constellation?.toUpperCase() ?? 'MILKY WAY'} · ~${distStr.toUpperCase()} · ~${preset.age.toUpperCase()}`,
+    520,
+    470
+  );
+
+  // Top Right: Catalog code & coordinates
+  ctx.textAlign = 'right';
+  ctx.font = '700 48px "JetBrains Mono", monospace';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+  ctx.fillText(preset.catalogCode ?? preset.shortName, width - 520, 400);
+
+  ctx.font = '500 28px "JetBrains Mono", monospace';
   ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
-  ctx.fillText(preset.catalogCode ?? preset.shortName, 520, 480);
+  const coordText = preset.cone
+    ? `RA ${formatHms(preset.cone.ra)} · DEC ${formatDms(preset.cone.dec)}`
+    : 'SOLAR BUBBLE · 50 PC SPHERE';
+  ctx.fillText(coordText, width - 520, 460);
 
   const skyField = {
     left: 1000,
@@ -2387,30 +2990,18 @@ export function renderNightFallPoster(options: {
     }
   }
 
-  const distStr =
-    preset.distancePcApprox >= 1000
-      ? `${(preset.distancePcApprox / 1000).toFixed(1)} kpc`
-      : `${preset.distancePcApprox} pc`;
-
+  // Bottom Left: Series metadata & archive info
   ctx.textAlign = 'left';
-  ctx.font = '700 108px "Inter", sans-serif';
-  ctx.fillStyle = '#ffffff';
-  ctx.fillText(formatPosterTitle(preset), hrBox.left, 6500);
+  ctx.font = '600 26px "JetBrains Mono", monospace';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+  ctx.fillText('SKYSCOUT ASTRONOMICAL FINE-ART POSTER SERIES', hrBox.left, 6500);
 
-  ctx.font = '400 32px "JetBrains Mono", monospace';
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
-  ctx.fillText(
-    `${preset.category.toUpperCase()} · ${preset.constellation?.toUpperCase() ?? 'MILKY WAY'} · ~${distStr.toUpperCase()} · ~${preset.age.toUpperCase()}`,
-    hrBox.left,
-    6570
-  );
-
-  ctx.font = '500 24px "JetBrains Mono", monospace';
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+  ctx.font = '400 22px "JetBrains Mono", monospace';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
   ctx.fillText(
     'NASA IPAC 2MASS ALL-SKY SURVEY · U.S. PUBLIC DOMAIN · 300 DPI FINE-ART PRINT',
     hrBox.left,
-    6630
+    6545
   );
 
   ctx.textAlign = 'left';
@@ -2434,6 +3025,7 @@ export function renderFineArtPoster(options: {
   themeId?: PosterThemeId;
   stars: Array<{ star: GaiaStar; sourceLabel: string }>;
   primaryPreset?: TargetPreset | null;
+  skyPlateImage?: CanvasImageSource | null;
 }): void {
   const { themeId = 'two-maps' } = options;
   if (themeId === 'star-quilt') {
@@ -2817,7 +3409,7 @@ export function renderGalleryPosterCanvas(options: {
 export async function downloadGalleryPoster(
   preset: TargetPreset,
   themeOrSchemeId: PosterThemeId | ColorSchemeId = 'two-maps',
-  options?: { showRadiusLines?: boolean }
+  options?: { showRadiusLines?: boolean; skyPlateImage?: CanvasImageSource | null }
 ): Promise<void> {
   if (typeof document === 'undefined') return;
 
@@ -2853,6 +3445,7 @@ export async function downloadGalleryPoster(
       themeId: themeOrSchemeId as PosterThemeId,
       stars: tagged,
       primaryPreset: preset,
+      skyPlateImage: options?.skyPlateImage,
     });
   } else {
     renderGalleryPosterCanvas({
@@ -2887,6 +3480,268 @@ export async function downloadGalleryPoster(
     }, 'image/png');
   });
 }
+
+/**
+ * Renders a lifestyle room mockup of the poster inside a framed gallery setting.
+ * Perfect for Etsy listing cover photo (2400 × 2000 px, 6:5 ratio).
+ */
+export function renderFramedRoomMockup(options: {
+  ctx: CanvasRenderingContext2D;
+  posterCanvas: HTMLCanvasElement;
+  width?: number;
+  height?: number;
+  frameStyle?: 'natural-oak' | 'matte-black';
+}): void {
+  const {
+    ctx,
+    posterCanvas,
+    width = 2400,
+    height = 2000,
+    frameStyle = 'natural-oak',
+  } = options;
+
+  // 1. Ambient wall background with warm gallery lighting
+  const wallGrad = ctx.createRadialGradient(width * 0.35, height * 0.3, 100, width * 0.5, height * 0.5, width * 0.85);
+  wallGrad.addColorStop(0, '#f5f3ee');
+  wallGrad.addColorStop(0.5, '#eae6de');
+  wallGrad.addColorStop(1, '#dad5cb');
+  ctx.fillStyle = wallGrad;
+  ctx.fillRect(0, 0, width, height);
+
+  // 2. Minimalist oak credenza / console surface at bottom
+  const tableY = height - 160;
+  const tableGrad = ctx.createLinearGradient(0, tableY, 0, height);
+  tableGrad.addColorStop(0, '#cca87c');
+  tableGrad.addColorStop(0.08, '#be9869');
+  tableGrad.addColorStop(1, '#93724a');
+  ctx.fillStyle = tableGrad;
+  ctx.fillRect(0, tableY, width, 160);
+
+  // Table surface top highlight bevel
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(0, tableY);
+  ctx.lineTo(width, tableY);
+  ctx.stroke();
+
+  // Subtle contact shadow below the wall / above the credenza
+  const edgeShadow = ctx.createLinearGradient(0, tableY - 30, 0, tableY);
+  edgeShadow.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  edgeShadow.addColorStop(1, 'rgba(0, 0, 0, 0.14)');
+  ctx.fillStyle = edgeShadow;
+  ctx.fillRect(0, tableY - 30, width, 30);
+
+  // 3. Frame geometry (exact 3:4 aspect ratio artwork)
+  const artW = 900;
+  const artH = 1200;
+  const matBorder = 48;
+  const frameBorder = 36;
+  const totalW = artW + (matBorder + frameBorder) * 2; // 1068
+  const totalH = artH + (matBorder + frameBorder) * 2; // 1368
+  const frameX = (width - totalW) / 2;
+  const frameY = 240;
+
+  // 4. Multi-layer realistic frame drop shadows
+  ctx.save();
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.16)';
+  ctx.shadowBlur = 60;
+  ctx.shadowOffsetX = 18;
+  ctx.shadowOffsetY = 36;
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(frameX, frameY, totalW, totalH);
+  ctx.restore();
+
+  ctx.save();
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.22)';
+  ctx.shadowBlur = 18;
+  ctx.shadowOffsetX = 6;
+  ctx.shadowOffsetY = 14;
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(frameX, frameY, totalW, totalH);
+  ctx.restore();
+
+  // 5. Outer wooden / metallic frame
+  if (frameStyle === 'natural-oak') {
+    const oakGrad = ctx.createLinearGradient(frameX, frameY, frameX + totalW, frameY + totalH);
+    oakGrad.addColorStop(0, '#c79d6b');
+    oakGrad.addColorStop(0.4, '#d8b283');
+    oakGrad.addColorStop(0.7, '#ba905e');
+    oakGrad.addColorStop(1, '#a67d4f');
+    ctx.fillStyle = oakGrad;
+  } else {
+    const blackGrad = ctx.createLinearGradient(frameX, frameY, frameX + totalW, frameY + totalH);
+    blackGrad.addColorStop(0, '#27272a');
+    blackGrad.addColorStop(0.5, '#18181b');
+    blackGrad.addColorStop(1, '#09090b');
+    ctx.fillStyle = blackGrad;
+  }
+  ctx.fillRect(frameX, frameY, totalW, totalH);
+
+  // Frame bevel highlight & shadow
+  ctx.strokeStyle = frameStyle === 'natural-oak' ? 'rgba(255, 255, 255, 0.35)' : 'rgba(255, 255, 255, 0.15)';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(frameX + 1, frameY + 1, totalW - 2, totalH - 2);
+
+  // 6. Archival off-white mat border (passe-partout)
+  const matX = frameX + frameBorder;
+  const matY = frameY + frameBorder;
+  const matW = totalW - frameBorder * 2;
+  const matH = totalH - frameBorder * 2;
+
+  ctx.fillStyle = '#faf8f5';
+  ctx.fillRect(matX, matY, matW, matH);
+
+  // Mat inner bevel shadow
+  ctx.strokeStyle = '#dfd9cc';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(matX, matY, matW, matH);
+
+  // 7. Render artwork inside frame opening
+  const innerArtX = matX + matBorder;
+  const innerArtY = matY + matBorder;
+
+  ctx.drawImage(posterCanvas, innerArtX, innerArtY, artW, artH);
+
+  // Inner art opening drop shadow from mat
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.28)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(innerArtX, innerArtY, artW, artH);
+
+  // 8. Subtle glass reflection
+  const glassGrad = ctx.createLinearGradient(innerArtX, innerArtY, innerArtX + artW, innerArtY + artH);
+  glassGrad.addColorStop(0, 'rgba(255, 255, 255, 0.08)');
+  glassGrad.addColorStop(0.35, 'rgba(255, 255, 255, 0.02)');
+  glassGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.0)');
+  glassGrad.addColorStop(0.85, 'rgba(255, 255, 255, 0.02)');
+  glassGrad.addColorStop(1, 'rgba(255, 255, 255, 0.05)');
+  ctx.fillStyle = glassGrad;
+  ctx.fillRect(innerArtX, innerArtY, artW, artH);
+}
+
+/**
+ * Renders a 2000 × 2000 macro crop highlighting the glowing bezier strands,
+ * famous star callouts, and typography for Etsy secondary gallery photos.
+ */
+export function renderDetailCropMockup(options: {
+  ctx: CanvasRenderingContext2D;
+  posterCanvas: HTMLCanvasElement;
+  width?: number;
+  height?: number;
+}): void {
+  const { ctx, posterCanvas, width = 2000, height = 2000 } = options;
+
+  // Source crop area centered around the middle transition (threads & stars)
+  // Poster is 5400 × 7200
+  const srcX = 1400;
+  const srcY = 2200;
+  const srcSize = 2600;
+
+  ctx.drawImage(posterCanvas, srcX, srcY, srcSize, srcSize, 0, 0, width, height);
+
+  // Corner pill: "300 DPI VECTOR CRISPNESS · DETAIL PREVIEW"
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+  ctx.lineWidth = 1.5;
+  const pillW = 460;
+  const pillH = 50;
+  const pillX = width - pillW - 60;
+  const pillY = height - pillH - 60;
+
+  ctx.beginPath();
+  ctx.roundRect ? ctx.roundRect(pillX, pillY, pillW, pillH, 25) : ctx.rect(pillX, pillY, pillW, pillH);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.font = '600 19px "JetBrains Mono", monospace';
+  ctx.fillStyle = '#38bdf8';
+  ctx.textAlign = 'center';
+  ctx.fillText('300 DPI VECTOR CRISPNESS · DETAIL PREVIEW', pillX + pillW / 2, pillY + 32);
+}
+
+/**
+ * Generates ready-to-paste Etsy listing metadata, SEO title, 13 search tags, and description.
+ */
+export function getEtsyListingCopy(
+  preset: TargetPreset,
+  themeId: PosterThemeId = 'two-maps'
+): {
+  title: string;
+  tags: string[];
+  description: string;
+  suggestedPriceDigital: string;
+  suggestedPricePhysical: string;
+} {
+  const formattedTitle = formatPosterTitle(preset);
+  const constellation = preset.constellation ?? 'Milky Way';
+  const isSolar = preset.id === 'solar-50pc';
+
+  const title = isSolar
+    ? 'Solar Neighborhood Star Map Poster, Astronomy Wall Art, 50 Parsec 3D Sphere Centered on the Sun & H-R Diagram, Minimalist Space Art Print'
+    : `${formattedTitle} Star Cluster Poster, Astronomy Wall Art, ${constellation} Star Map & Hertzsprung Russell Diagram, Minimalist Space Art Print`;
+
+  const tags = [
+    'astronomy wall art',
+    'star cluster poster',
+    `${preset.shortName.toLowerCase()} poster`,
+    'space poster vintage',
+    'minimalist star map',
+    'hertzsprung diagram',
+    'celestial wall decor',
+    'astrophysics print',
+    'stargazing gift',
+    'astronomy teacher',
+    'space nursery art',
+    'scientific poster',
+    'dark academia space',
+  ].slice(0, 13);
+
+  const description = `✨ ${formattedTitle.toUpperCase()} (${preset.catalogCode ?? preset.shortName}) — DUAL-MAP ASTRONOMICAL FINE-ART PRINT
+
+Where celestial position meets stellar physics.
+
+This museum-grade astronomical chart presents two interconnected perspectives of ${isSolar ? 'our local solar neighborhood out to 50 pc (163 ly)' : `${formattedTitle} (${preset.category.toLowerCase()} in ${constellation})`}:
+• Top: True celestial sky coordinates showing where the stars sit in the night sky.
+• Bottom: Hertzsprung–Russell diagram sorting cluster stars by true surface temperature (hot blue at left) and luminosity (brilliant at top).
+• Delicate luminous threads join the brightest iconic stars directly between their sky location and their physical astrophysical state.
+
+Synthesized from authentic Gaia DR3 and NASA 2MASS infrared astronomical survey archives.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📁 WHAT YOU RECEIVE (INSTANT DIGITAL DOWNLOAD)
+
+You will receive an ultra-high-resolution 300 DPI print-ready file formatted in standard 3:4 aspect ratio:
+• 18" × 24" (5,400 × 7,200 px) — Standard frame size (Target, IKEA, Amazon)
+
+Easily scales down with razor-sharp fidelity to:
+• 12" × 16"
+• 9" × 12"
+• 6" × 8"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🖨️ HOW TO PRINT
+
+1. Home Printer: Use heavy archival matte cardstock or fine-art watercolor paper.
+2. Local Print Shop: Staples, Walgreens, Costco, Office Depot, or your local professional print shop.
+3. Online Print Services: Gelato, Printify, Shutterfly, Mpix, Printique, or FinerWorks.
+*For best results, request heavyweight smooth archival matte paper (200–250 gsm).*
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PLEASE NOTE
+This is an INSTANT DIGITAL DOWNLOAD. No physical print or frame will be shipped. Colors may vary slightly due to monitor calibration and printer profiles.`;
+
+  return {
+    title: title.slice(0, 140),
+    tags,
+    description,
+    suggestedPriceDigital: '$8.90',
+    suggestedPricePhysical: '$34.00',
+  };
+}
+
 
 
 
