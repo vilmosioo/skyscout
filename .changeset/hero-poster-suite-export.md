@@ -2,10 +2,12 @@
 "starplot": minor
 ---
 
-Add Print-Ready Hero Poster Collection Suite, dedicated in-app Poster Gallery, and instant catalog export:
-- Dedicated `/gallery` Route: Interactive museum poster gallery room with live 3:4 canvas rendering, room wall backdrop, realistic mat board and frame mockup options (Natural Oak, Matte Black, Gallery White), theme switcher (Classic Black, Archival Cream, JWST Gold, Cosmic UV), solar radius curves toggle, and 300 DPI master download button.
-- Added `downloadGalleryPoster`: Generates and triggers instant 18" × 24" at 300 DPI (`5400 × 7200 px`) PNG poster downloads for any preset using cached or high-precision synthesized stars.
-- Fixed duplicate catalog codes in poster typography: Added `formatPosterTitle` to cleanly format cluster headers without redundancy (e.g. `M45 · M45 PLEIADES` is now cleanly `M45 · PLEIADES`).
-- Home Page Collection Suite: Added a dedicated top hero bar on `/` featuring the "Launch 5" bestsellers (Pleiades M45, Hercules M13, Hyades, Double Cluster, Solar Neighborhood) with theme selection (Classic Black, Archival Cream, JWST Gold, Ultraviolet) and a sequential batch download button.
-- Instant Card Exports: Added an inline `🖼️ 18×24"` quick-download button on every cluster card in the catalog grid.
-- Navigation: Added `🖼️ Poster Gallery` action links in headers across the catalog home view and multi-cluster chart view.
+Significantly simplify StarPlot into a dedicated Fine-Art Poster Studio powered by NASA 2MASS data with 3 museum poster themes:
+- Home Grid View (`/`): Direct, distraction-free grid of all 33 star clusters featuring real-time thumbnail previews matching the selected theme and metadata (distance, constellation, age).
+- Dedicated Cluster Poster Page (`/cluster/:id`): Single-cluster view rendering high-resolution 3:4 canvas posters across 3 curated themes:
+  1. **Two Maps** (`two-maps`): Celestial sky disc above, boxed H–R diagram below, joined by delicate luminous Bézier threads connecting each star's sky position to its physical state.
+  2. **Star Quilt** (`star-quilt`): Archival cream background (`#f7f4ed`) with binned patchwork tiles along the H–R sequence featuring authentic inset dashed stitching (`[8, 6]`) color-coded by spectral class.
+  3. **Night Fall / Cascade** (`night-fall`): Frameless pitch-black cosmic canvas with luminous streaming S-curves cascading from the celestial cluster directly into the H–R sequence.
+- NASA 2MASS Integration with Heavy Caching: Powered by `@skyscout/nasa-client`, fetching near-infrared 2MASS cluster data with in-memory deduplication and persistent `localStorage` caching. Instant synthesized fallback ensures 0ms render latency.
+- Direct 300 DPI Poster Download: 1-click `📥 Download 18×24"` button generating full 5,400 × 7,200 px lossless PNGs (Gelato & Printify production-ready) customized to the active theme.
+- Clutter Removed: Stripped complex multi-cluster selection drawers, 6-field coordinate search forms, star inspection hover tooltips, and non-essential UI controls.
