@@ -5,14 +5,11 @@ import type { GaiaStar } from '@skyscout/gaia-client';
 import {
   bpRpToStarHexColor,
   downloadGalleryPoster,
-  drawEtsyShopBanner,
-  drawEtsyShopLogo,
   fetchNasaClusterStars,
   formatPosterTitle,
   generateClusterFallbackStars,
   generateClusterPreviewPoints,
   getCachedNasaStars,
-  getEtsyListingCopy,
   HR_BOUNDS,
   POSTER_THEMES,
   type PosterThemeId,
@@ -168,10 +165,6 @@ function ClusterPosterView() {
   }, [id]);
 
   const [activeTheme, setActiveTheme] = useState<PosterThemeId>('two-maps');
-
-  const [showEtsyModal, setShowEtsyModal] = useState<boolean>(false);
-  const [isExportingEtsy, setIsExportingEtsy] = useState<boolean>(false);
-  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const nasaClient = useMemo(() => new NasaClient(), []);
   const [stars, setStars] = useState<GaiaStar[]>(() => {
@@ -458,7 +451,7 @@ function ClusterPosterView() {
       frameStyle: 'natural-oak',
     });
     mockup.toBlob((blob) => {
-      downloadBlob(blob, `etsy-1-hero-framed-mockup-${preset.id}.jpg`);
+      downloadBlob(blob, `framed-room-mockup-${preset.id}.jpg`);
     }, 'image/jpeg', 0.93);
   };
 
@@ -474,62 +467,9 @@ function ClusterPosterView() {
       posterCanvas: master,
     });
     crop.toBlob((blob) => {
-      downloadBlob(blob, `etsy-2-macro-detail-crop-${preset.id}.jpg`);
+      downloadBlob(blob, `macro-detail-crop-${preset.id}.jpg`);
     }, 'image/jpeg', 0.93);
   };
-
-  const handleDownloadShopLogo = () => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 500;
-    canvas.height = 500;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    drawEtsyShopLogo(ctx, 500, 500);
-    canvas.toBlob((blob) => {
-      downloadBlob(blob, 'starplot-etsy-shop-logo-500x500.png');
-    }, 'image/png');
-  };
-
-  const handleDownloadShopBanner = () => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 1200;
-    canvas.height = 300;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    drawEtsyShopBanner(ctx, 1200, 300);
-    canvas.toBlob((blob) => {
-      downloadBlob(blob, 'starplot-etsy-shop-banner-1200x300.png');
-    }, 'image/png');
-  };
-
-  const handleDownloadAllEtsyAssets = async () => {
-    setIsExportingEtsy(true);
-    try {
-      handleDownloadHeroMockup();
-      setTimeout(() => handleDownloadDetailCrop(), 600);
-      setTimeout(() => handleDownload(), 1200);
-    } finally {
-      setTimeout(() => setIsExportingEtsy(false), 2000);
-    }
-  };
-
-  const handleCopyText = (text: string, label: string) => {
-    if (navigator?.clipboard) {
-      navigator.clipboard.writeText(text);
-      setCopiedField(label);
-      setTimeout(() => setCopiedField(null), 2000);
-    }
-  };
-
-  const etsyCopy = useMemo(() => {
-    return getEtsyListingCopy(preset, activeTheme);
-  }, [preset, activeTheme]);
-
-  const shopStoryText = `StarPlot was founded out of a fascination with astrophysics and celestial cartography. Most star maps only show where stars sit across the celestial sphere, hiding their physical nature.
-
-Our charts bridge both worlds: connecting true astronomical sky coordinates directly with Hertzsprung–Russell diagrams. Every star is plotted from real space telescope and survey catalogs—including ESA Gaia DR3 astrometry and NASA 2MASS infrared archives.
-
-We render every line with vector precision at 300 DPI, creating clean, scientifically grounded artwork for astronomers, stargazers, and anyone drawn to the night sky.`;
 
   const distStr =
     preset.distancePcApprox >= 1000
@@ -560,11 +500,19 @@ We render every line with vector precision at 300 DPI, creating clean, scientifi
         <div className="poster-header-actions">
           <button
             type="button"
-            onClick={() => setShowEtsyModal(true)}
-            className="etsy-kit-btn"
-            title="Open Etsy Quick Launch Kit with ready-to-upload mockups and SEO listing copy"
+            onClick={handleDownloadHeroMockup}
+            className="download-btn secondary"
+            title="Download framed oak wall art mockup (2400×2000 px)"
           >
-            🛍️ Etsy Launch Kit
+            🖼️ Framed Mockup
+          </button>
+          <button
+            type="button"
+            onClick={handleDownloadDetailCrop}
+            className="download-btn secondary"
+            title="Download 2000×2000 px macro detail crop"
+          >
+            🔍 Detail Crop
           </button>
           <button
             type="button"
@@ -573,7 +521,7 @@ We render every line with vector precision at 300 DPI, creating clean, scientifi
             className="download-btn primary"
             title={`Download 18×24 inch ${themeInfo.name} fine-art poster at 300 DPI (5400×7200 px PNG)`}
           >
-            {isExporting ? '⏳ Rendering 300 DPI...' : `📥 Download 18×24" (${themeInfo.name})`}
+            {isExporting ? '⏳ Rendering 300 DPI...' : '📥 Download 18×24"'}
           </button>
         </div>
       </header>
@@ -690,254 +638,6 @@ We render every line with vector precision at 300 DPI, creating clean, scientifi
           <p>{preset.subtitle}</p>
         </div>
       </main>
-
-      {/* 🛍️ Etsy Quick Launch Kit Modal */}
-      {showEtsyModal && (
-        <div className="modal-backdrop" onClick={() => setShowEtsyModal(false)}>
-          <div className="etsy-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <div>
-                <h2>🛍️ Etsy Quick Launch Kit</h2>
-                <p>Everything you need to publish this listing and make a sale today</p>
-              </div>
-              <button
-                type="button"
-                className="modal-close-btn"
-                onClick={() => setShowEtsyModal(false)}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="modal-body">
-              {/* Shop Branding: Logo & Banner */}
-              <section className="modal-section">
-                <h3>Shop Branding (Logo &amp; Banner)</h3>
-                <p className="section-hint">Required graphics for your Etsy shop storefront:</p>
-                <div className="etsy-assets-grid">
-                  <div className="asset-card">
-                    <span className="asset-badge">Shop Icon / Logo</span>
-                    <strong>StarPlot Star Reticle</strong>
-                    <span className="asset-dims">500 × 500 px · PNG (Circle-Crop Ready)</span>
-                    <button
-                      type="button"
-                      className="asset-download-btn"
-                      onClick={handleDownloadShopLogo}
-                    >
-                      ⬇ Download Logo (500×500)
-                    </button>
-                  </div>
-                  <div className="asset-card">
-                    <span className="asset-badge">Shop Banner</span>
-                    <strong>StarPlot Panoramic Banner</strong>
-                    <span className="asset-dims">1200 × 300 px · PNG (Storefront Header)</span>
-                    <button
-                      type="button"
-                      className="asset-download-btn"
-                      onClick={handleDownloadShopBanner}
-                    >
-                      ⬇ Download Banner (1200×300)
-                    </button>
-                  </div>
-                </div>
-              </section>
-
-              {/* Step 1: Listing Photos */}
-              <section className="modal-section">
-                <h3>1. Listing Images (Mockups &amp; Detail Crops)</h3>
-                <p className="section-hint">High-converting lifestyle photos ready to upload to Etsy Photos:</p>
-                <div className="etsy-assets-grid">
-                  <div className="asset-card">
-                    <span className="asset-badge">Photo 1 · Hero</span>
-                    <strong>Framed Room Mockup</strong>
-                    <span className="asset-dims">2400 × 2000 px · Oak Gallery Frame</span>
-                    <button
-                      type="button"
-                      className="asset-download-btn"
-                      onClick={handleDownloadHeroMockup}
-                    >
-                      ⬇ Download Hero Mockup (JPG)
-                    </button>
-                  </div>
-                  <div className="asset-card">
-                    <span className="asset-badge">Photo 2 · Detail</span>
-                    <strong>Macro Detail Crop</strong>
-                    <span className="asset-dims">2000 × 2000 px · Crisp Vector Threads</span>
-                    <button
-                      type="button"
-                      className="asset-download-btn"
-                      onClick={handleDownloadDetailCrop}
-                    >
-                      ⬇ Download Detail Crop (JPG)
-                    </button>
-                  </div>
-                  <div className="asset-card">
-                    <span className="asset-badge">Digital Deliverable</span>
-                    <strong>300 DPI Print File</strong>
-                    <span className="asset-dims">5400 × 7200 px · 18×24" Lossless PNG</span>
-                    <button
-                      type="button"
-                      className="asset-download-btn"
-                      onClick={handleDownload}
-                      disabled={isExporting}
-                    >
-                      ⬇ Download Print PNG
-                    </button>
-                  </div>
-                </div>
-
-                <div className="batch-download-row">
-                  <button
-                    type="button"
-                    className="batch-download-btn"
-                    onClick={handleDownloadAllEtsyAssets}
-                    disabled={isExportingEtsy}
-                  >
-                    {isExportingEtsy ? '⏳ Exporting All Assets...' : '⚡ Download All 3 Assets in 1-Click'}
-                  </button>
-                </div>
-              </section>
-
-              {/* Step 2: Listing Copy */}
-              <section className="modal-section">
-                <h3>2. Copy-Paste Listing Details</h3>
-
-                <div className="copy-field-group">
-                  <div className="field-header">
-                    <label>Listing Title (SEO-Optimized)</label>
-                    <button
-                      type="button"
-                      className="copy-btn"
-                      onClick={() => handleCopyText(etsyCopy.title, 'title')}
-                    >
-                      {copiedField === 'title' ? '✓ Copied!' : '📋 Copy Title'}
-                    </button>
-                  </div>
-                  <input
-                    type="text"
-                    readOnly
-                    value={etsyCopy.title}
-                    className="copy-input"
-                    onClick={(e) => (e.target as HTMLInputElement).select()}
-                  />
-                </div>
-
-                <div className="copy-field-group">
-                  <div className="field-header">
-                    <label>13 Etsy Search Tags (Exact Match Algorithm)</label>
-                    <button
-                      type="button"
-                      className="copy-btn"
-                      onClick={() => handleCopyText(etsyCopy.tags.join(', '), 'tags')}
-                    >
-                      {copiedField === 'tags' ? '✓ Copied!' : '📋 Copy All 13 Tags'}
-                    </button>
-                  </div>
-                  <div className="tags-pill-list">
-                    {etsyCopy.tags.map((tag) => (
-                      <span key={tag} className="tag-pill">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="copy-field-group">
-                  <div className="field-header">
-                    <label>Listing Description</label>
-                    <button
-                      type="button"
-                      className="copy-btn"
-                      onClick={() => handleCopyText(etsyCopy.description, 'desc')}
-                    >
-                      {copiedField === 'desc' ? '✓ Copied!' : '📋 Copy Description'}
-                    </button>
-                  </div>
-                  <textarea
-                    readOnly
-                    rows={6}
-                    value={etsyCopy.description}
-                    className="copy-textarea"
-                    onClick={(e) => (e.target as HTMLTextAreaElement).select()}
-                  />
-                </div>
-
-                <div className="pricing-recommendation-box">
-                  <div className="pricing-badge">💰 Suggested Launch Pricing</div>
-                  <div className="pricing-columns">
-                    <div>
-                      <strong>Digital Download (Instant Margin):</strong> <span>$8.90</span> (or run 25% launch sale at $6.67)
-                    </div>
-                    <div>
-                      <strong>Physical Print (Gelato 18×24" Matte):</strong> <span>$34.00 – $38.00</span> ($18.50 profit/unit)
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              {/* Shop Story & About */}
-              <section className="modal-section">
-                <h3>Shop Story &amp; About Section</h3>
-                <p className="section-hint">Copy and paste this into Etsy's "Share your story" onboarding:</p>
-
-                <div className="copy-field-group">
-                  <div className="field-header">
-                    <label>Story Headline</label>
-                    <button
-                      type="button"
-                      className="copy-btn"
-                      onClick={() => handleCopyText('Bridging Celestial Sky Coordinates with Astrophysical Data', 'story-head')}
-                    >
-                      {copiedField === 'story-head' ? '✓ Copied!' : '📋 Copy Headline'}
-                    </button>
-                  </div>
-                  <input
-                    type="text"
-                    readOnly
-                    value="Bridging Celestial Sky Coordinates with Astrophysical Data"
-                    className="copy-input"
-                    onClick={(e) => (e.target as HTMLInputElement).select()}
-                  />
-                </div>
-
-                <div className="copy-field-group">
-                  <div className="field-header">
-                    <label>About StarPlot Story</label>
-                    <button
-                      type="button"
-                      className="copy-btn"
-                      onClick={() => handleCopyText(shopStoryText, 'story-body')}
-                    >
-                      {copiedField === 'story-body' ? '✓ Copied!' : '📋 Copy Story Text'}
-                    </button>
-                  </div>
-                  <textarea
-                    readOnly
-                    rows={6}
-                    value={shopStoryText}
-                    className="copy-textarea"
-                    onClick={(e) => (e.target as HTMLTextAreaElement).select()}
-                  />
-                </div>
-              </section>
-
-              {/* Step 3: Launch Shop Action */}
-              <section className="modal-section launch-action-section">
-                <h3>3. Ready to Publish?</h3>
-                <p>Open Etsy's seller onboarding, paste the details above, and publish your listing:</p>
-                <a
-                  href="https://www.etsy.com/sell"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="open-etsy-btn"
-                >
-                  🚀 Open Etsy Shop Manager (etsy.com/sell) ↗
-                </a>
-              </section>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

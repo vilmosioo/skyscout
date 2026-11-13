@@ -2229,6 +2229,172 @@ export function drawCornerTelescopePlate(options: {
 }
 
 /**
+ * Deconflicts and lays out star callouts with guaranteed non-overlapping shelves,
+ * clean leader lines, and smart left/right cluster distribution.
+ */
+export interface CalloutInputItem {
+  star: GaiaStar;
+  name: string;
+  subtitle: string;
+  x: number;
+  y: number;
+  hex: string;
+  absMag?: number;
+}
+
+export interface ResolvedCalloutItem extends CalloutInputItem {
+  isRight: boolean;
+  leaderStartX: number;
+  leaderStartY: number;
+  elbowX: number;
+  shelfStartX: number;
+  shelfEndX: number;
+  shelfY: number;
+  textX: number;
+  nameY: number;
+  subtitleY: number;
+  textAlign: CanvasTextAlign;
+}
+
+export function layoutStarCallouts(
+  items: CalloutInputItem[],
+  options: {
+    bounds: { minX: number; maxX: number; minY: number; maxY: number };
+    originX: number;
+    minVerticalGap?: number;
+    shelfWidth?: number;
+    isSkyArea?: boolean;
+  }
+): ResolvedCalloutItem[] {
+  if (items.length === 0) return [];
+
+  const minGap = options.minVerticalGap ?? 64;
+  const shelfWidth = options.shelfWidth ?? 140;
+
+  // 1. Group stars that are horizontally close (within 140px)
+  const sortedX = [...items].sort((a, b) => a.x - b.x);
+  const clusters: CalloutInputItem[][] = [];
+  let currentCluster: CalloutInputItem[] = [];
+
+  for (const s of sortedX) {
+    if (currentCluster.length === 0) {
+      currentCluster.push(s);
+    } else {
+      const prev = currentCluster[currentCluster.length - 1];
+      if (s.x - prev.x <= 140) {
+        currentCluster.push(s);
+      } else {
+        clusters.push(currentCluster);
+        currentCluster = [s];
+      }
+    }
+  }
+  if (currentCluster.length > 0) clusters.push(currentCluster);
+
+  // 2. Assign side (left vs right)
+  const leftItems: CalloutInputItem[] = [];
+  const rightItems: CalloutInputItem[] = [];
+
+  if (clusters.length === 1 && clusters[0].length > 1) {
+    // Single compact cluster: split evenly into left and right wings
+    const single = clusters[0];
+    const half = Math.ceil(single.length / 2);
+    for (let i = 0; i < single.length; i++) {
+      if (i < half && single[i].x > options.bounds.minX + 220) {
+        leftItems.push(single[i]);
+      } else {
+        rightItems.push(single[i]);
+      }
+    }
+  } else {
+    for (let cIdx = 0; cIdx < clusters.length; cIdx++) {
+      const cl = clusters[cIdx];
+      const clCenterX = cl.reduce((sum, s) => sum + s.x, 0) / cl.length;
+      const isLeft =
+        clusters.length > 1
+          ? cIdx === 0 && clCenterX > options.bounds.minX + 240
+          : clCenterX < options.originX;
+
+      for (const s of cl) {
+        if (isLeft) leftItems.push(s);
+        else rightItems.push(s);
+      }
+    }
+  }
+
+  // 3. Deconflict vertical shelves for each side
+  function deconflictGroup(group: CalloutInputItem[], isRight: boolean): ResolvedCalloutItem[] {
+    if (group.length === 0) return [];
+
+    const sortedY = [...group].sort((a, b) => a.y - b.y);
+    const k = sortedY.length;
+
+    const yCenter = sortedY.reduce((sum, s) => sum + s.y, 0) / k;
+    const hTotal = (k - 1) * minGap;
+    const yBase = yCenter - hTotal / 2 - 12;
+
+    const shelves = sortedY.map((s, idx) => Math.round(yBase + idx * minGap));
+
+    // Iterative relaxation passes to strictly prevent overlaps and respect bounds
+    for (let pass = 0; pass < 8; pass++) {
+      for (let i = 0; i < k - 1; i++) {
+        if (shelves[i + 1] - shelves[i] < minGap) {
+          const push = (minGap - (shelves[i + 1] - shelves[i])) / 2;
+          shelves[i] -= push;
+          shelves[i + 1] += push;
+        }
+      }
+      for (let i = 0; i < k; i++) {
+        if (shelves[i] < options.bounds.minY) shelves[i] = options.bounds.minY;
+        if (shelves[i] > options.bounds.maxY) shelves[i] = options.bounds.maxY;
+      }
+      for (let i = 0; i < k - 1; i++) {
+        if (shelves[i + 1] < shelves[i] + minGap) shelves[i + 1] = shelves[i] + minGap;
+      }
+      for (let i = k - 1; i > 0; i--) {
+        if (shelves[i - 1] > shelves[i] - minGap) shelves[i - 1] = shelves[i] - minGap;
+      }
+    }
+
+    const minX = Math.min(...sortedY.map((s) => s.x));
+    const maxX = Math.max(...sortedY.map((s) => s.x));
+    const spanX = maxX - minX;
+    const useUnifiedCol = spanX < 180;
+    const unifiedColX = isRight ? maxX + 70 : minX - 70;
+
+    return sortedY.map((s, idx) => {
+      const shelfY = shelves[idx];
+      const colX = useUnifiedCol ? unifiedColX : isRight ? s.x + 75 : s.x - 75;
+      const leaderStartX = isRight ? s.x + 18 : s.x - 18;
+      const leaderStartY = s.y;
+      const elbowX = isRight ? colX - 16 : colX + 16;
+      const shelfStartX = colX;
+      const shelfEndX = isRight ? colX + shelfWidth : colX - shelfWidth;
+
+      return {
+        ...s,
+        isRight,
+        leaderStartX,
+        leaderStartY,
+        elbowX,
+        shelfStartX,
+        shelfEndX,
+        shelfY,
+        textX: shelfStartX + (isRight ? 8 : -8),
+        nameY: shelfY - 6,
+        subtitleY: shelfY + 18,
+        textAlign: isRight ? 'left' : 'right',
+      };
+    });
+  }
+
+  const leftResolved = deconflictGroup(leftItems, false);
+  const rightResolved = deconflictGroup(rightItems, true);
+
+  return [...leftResolved, ...rightResolved];
+}
+
+/**
  * Theme 1: "Two Maps"
  * Circular celestial sky disc on top, H–R diagram box on bottom, connected by luminous bezier threads.
  */
@@ -2548,12 +2714,11 @@ export function renderTwoMapsPoster(options: {
     ctx.fill();
   }
 
-  // Highlighted bright star dots (radial halos, reticle rings, white cores, and leader labels)
+  // Highlighted bright star dots (radial halos, reticle rings, and white cores)
   for (let i = 0; i < highlightedItems.length; i++) {
     const item = highlightedItems[i];
 
     // --- In Sky Disc ("THE SKY") ---
-    // Multi-layer radial glow halo
     const skyHalo = ctx.createRadialGradient(item.skyX, item.skyY, 2, item.skyX, item.skyY, 52);
     skyHalo.addColorStop(0, hexToRgba(item.hex, 0.95));
     skyHalo.addColorStop(0.25, hexToRgba(item.hex, 0.5));
@@ -2564,7 +2729,6 @@ export function renderTwoMapsPoster(options: {
     ctx.arc(item.skyX, item.skyY, 52, 0, Math.PI * 2);
     ctx.fill();
 
-    // Reticle target ring
     ctx.save();
     ctx.strokeStyle = item.hex;
     ctx.globalAlpha = 0.8;
@@ -2573,44 +2737,10 @@ export function renderTwoMapsPoster(options: {
     ctx.arc(item.skyX, item.skyY, 18, 0, Math.PI * 2);
     ctx.stroke();
 
-    // White core pinpoint
     ctx.fillStyle = '#ffffff';
     ctx.beginPath();
     ctx.arc(item.skyX, item.skyY, 6.5, 0, Math.PI * 2);
     ctx.fill();
-    ctx.restore();
-
-    // Radial leader line & label in Sky Disc
-    const dX = item.skyX - skyCenter.x;
-    const dY = item.skyY - skyCenter.y;
-    const dist = Math.sqrt(dX * dX + dY * dY);
-    const normX = dist > 1 ? dX / dist : 1;
-    const normY = dist > 1 ? dY / dist : 0;
-    const isRight = normX >= 0;
-
-    const leaderStartX = item.skyX + normX * 18;
-    const leaderStartY = item.skyY + normY * 18;
-    const elbowX = item.skyX + (isRight ? 46 : -46);
-    const elbowY = item.skyY + normY * 28;
-    const shelfX = item.skyX + (isRight ? 95 : -95);
-
-    ctx.save();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
-    ctx.lineWidth = 1.8;
-    ctx.beginPath();
-    ctx.moveTo(leaderStartX, leaderStartY);
-    ctx.lineTo(elbowX, elbowY);
-    ctx.lineTo(shelfX, elbowY);
-    ctx.stroke();
-
-    ctx.textAlign = isRight ? 'left' : 'right';
-    ctx.font = '700 24px "Inter", sans-serif';
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText(item.name, shelfX + (isRight ? 10 : -10), elbowY - 6);
-
-    ctx.font = '500 18px "JetBrains Mono", monospace';
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
-    ctx.fillText(item.subtitle, shelfX + (isRight ? 10 : -10), elbowY + 16);
     ctx.restore();
 
     // --- In Diagram ("THE DIAGRAM") ---
@@ -2624,7 +2754,6 @@ export function renderTwoMapsPoster(options: {
     ctx.arc(item.hrX, item.hrY, 44, 0, Math.PI * 2);
     ctx.fill();
 
-    // Reticle ring
     ctx.save();
     ctx.strokeStyle = item.hex;
     ctx.globalAlpha = 0.8;
@@ -2633,40 +2762,116 @@ export function renderTwoMapsPoster(options: {
     ctx.arc(item.hrX, item.hrY, 16, 0, Math.PI * 2);
     ctx.stroke();
 
-    // White core pinpoint
     ctx.fillStyle = '#ffffff';
     ctx.beginPath();
     ctx.arc(item.hrX, item.hrY, 6.0, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
+  }
 
-    // Diagram leader line & label
-    const hrIsRight = item.hrX < hrBox.left + hrBox.width * 0.65;
-    const hrElbowY = item.hrY - 32;
-    const hrElbowX = item.hrX + (hrIsRight ? 45 : -45);
-    const hrShelfX = item.hrX + (hrIsRight ? 85 : -85);
+  // Deconflicted leader lines & labels in Sky Disc
+  const skyCallouts = layoutStarCallouts(
+    highlightedItems.map((item) => ({
+      star: item.star,
+      name: item.name,
+      subtitle: item.subtitle,
+      x: item.skyX,
+      y: item.skyY,
+      hex: item.hex,
+      absMag: item.absMag,
+    })),
+    {
+      bounds: {
+        minX: skyCenter.x - skyRadius + 60,
+        maxX: skyCenter.x + skyRadius - 60,
+        minY: skyCenter.y - skyRadius + 60,
+        maxY: skyCenter.y + skyRadius - 60,
+      },
+      originX: skyCenter.x,
+      minVerticalGap: 66,
+      shelfWidth: 150,
+      isSkyArea: true,
+    }
+  );
 
+  for (const c of skyCallouts) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.moveTo(c.leaderStartX, c.leaderStartY);
+    ctx.bezierCurveTo(
+      c.leaderStartX + (c.isRight ? 28 : -28),
+      c.leaderStartY,
+      c.elbowX - (c.isRight ? 20 : -20),
+      c.shelfY,
+      c.elbowX,
+      c.shelfY
+    );
+    ctx.lineTo(c.shelfEndX, c.shelfY);
+    ctx.stroke();
+
+    ctx.textAlign = c.textAlign;
+    ctx.font = '700 24px "Inter", sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(c.name, c.textX, c.nameY);
+
+    ctx.font = '500 18px "JetBrains Mono", monospace';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+    ctx.fillText(c.subtitle, c.textX, c.subtitleY);
+    ctx.restore();
+  }
+
+  // Deconflicted leader lines & labels in Diagram
+  const hrCallouts = layoutStarCallouts(
+    highlightedItems.map((item) => ({
+      star: item.star,
+      name: item.name,
+      subtitle: `MG ${item.absMag.toFixed(1)} · BP-RP ${(item.star.bpRp ?? 0.8).toFixed(2)}`,
+      x: item.hrX,
+      y: item.hrY,
+      hex: item.hex,
+      absMag: item.absMag,
+    })),
+    {
+      bounds: {
+        minX: hrBox.left + 40,
+        maxX: hrBox.left + hrBox.width - 40,
+        minY: hrBox.top + 60,
+        maxY: hrBox.top + hrBox.height - 40,
+      },
+      originX: hrBox.left + hrBox.width * 0.5,
+      minVerticalGap: 64,
+      shelfWidth: 140,
+      isSkyArea: false,
+    }
+  );
+
+  for (const c of hrCallouts) {
     ctx.save();
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
     ctx.lineWidth = 1.6;
     ctx.beginPath();
-    ctx.moveTo(item.hrX + (hrIsRight ? 16 : -16), item.hrY - 12);
-    ctx.lineTo(hrElbowX, hrElbowY);
-    ctx.lineTo(hrShelfX, hrElbowY);
+    ctx.moveTo(c.leaderStartX, c.leaderStartY);
+    ctx.bezierCurveTo(
+      c.leaderStartX + (c.isRight ? 24 : -24),
+      c.leaderStartY,
+      c.elbowX - (c.isRight ? 18 : -18),
+      c.shelfY,
+      c.elbowX,
+      c.shelfY
+    );
+    ctx.lineTo(c.shelfEndX, c.shelfY);
     ctx.stroke();
 
-    ctx.textAlign = hrIsRight ? 'left' : 'right';
+    ctx.textAlign = c.textAlign;
     ctx.font = '700 22px "Inter", sans-serif';
     ctx.fillStyle = '#ffffff';
-    ctx.fillText(item.name, hrShelfX + (hrIsRight ? 8 : -8), hrElbowY - 5);
+    ctx.fillText(c.name, c.textX, c.nameY);
 
     ctx.font = '500 17px "JetBrains Mono", monospace';
     ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
-    ctx.fillText(
-      `MG ${item.absMag.toFixed(1)} · BP-RP ${(item.star.bpRp ?? 0.8).toFixed(2)}`,
-      hrShelfX + (hrIsRight ? 8 : -8),
-      hrElbowY + 16
-    );
+    ctx.fillText(c.subtitle, c.textX, c.subtitleY);
     ctx.restore();
   }
 
@@ -2674,7 +2879,7 @@ export function renderTwoMapsPoster(options: {
   ctx.textAlign = 'left';
   ctx.font = '600 26px "JetBrains Mono", monospace';
   ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
-  ctx.fillText('SKYSCOUT ASTRONOMICAL FINE-ART POSTER SERIES', hrBox.left, 6500);
+  ctx.fillText('STARPLOT ASTRONOMICAL FINE-ART POSTER SERIES', hrBox.left, 6500);
 
   ctx.font = '400 22px "JetBrains Mono", monospace';
   ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
@@ -3873,136 +4078,6 @@ This is an INSTANT DIGITAL DOWNLOAD. No physical print or frame will be shipped.
     suggestedPriceDigital: '$8.90',
     suggestedPricePhysical: '$34.00',
   };
-}
-
-/**
- * Renders the official 500 × 500 px Etsy shop icon / logo to a canvas.
- */
-export function drawEtsyShopLogo(ctx: CanvasRenderingContext2D, width = 500, height = 500): void {
-  ctx.fillStyle = '#030509';
-  ctx.fillRect(0, 0, width, height);
-
-  const rad = ctx.createRadialGradient(width / 2, height / 2, 40, width / 2, height / 2, width / 2);
-  rad.addColorStop(0, '#0c1527');
-  rad.addColorStop(1, '#020408');
-  ctx.fillStyle = rad;
-  ctx.fillRect(0, 0, width, height);
-
-  ctx.strokeStyle = 'rgba(56, 189, 248, 0.25)';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.arc(width / 2, height / 2, 190, 0, Math.PI * 2);
-  ctx.stroke();
-
-  ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(250, 50); ctx.lineTo(250, 70);
-  ctx.moveTo(250, 430); ctx.lineTo(250, 450);
-  ctx.moveTo(50, 250); ctx.lineTo(70, 250);
-  ctx.moveTo(430, 250); ctx.lineTo(450, 250);
-  ctx.stroke();
-
-  ctx.fillStyle = '#ffffff';
-  ctx.beginPath();
-  ctx.moveTo(250, 175);
-  ctx.quadraticCurveTo(250, 250, 325, 250);
-  ctx.quadraticCurveTo(250, 250, 250, 325);
-  ctx.quadraticCurveTo(250, 250, 175, 250);
-  ctx.quadraticCurveTo(250, 250, 250, 175);
-  ctx.fill();
-
-  ctx.fillStyle = '#38bdf8';
-  ctx.beginPath();
-  ctx.arc(250, 250, 6, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-  ctx.font = '700 22px "Inter", sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('STARPLOT', 250, 395);
-
-  ctx.fillStyle = 'rgba(56, 189, 248, 0.7)';
-  ctx.font = '500 11px "JetBrains Mono", monospace';
-  ctx.fillText('ASTRONOMICAL ATELIER', 250, 415);
-}
-
-/**
- * Renders the official 1200 × 300 px Etsy big shop banner to a canvas.
- */
-export function drawEtsyShopBanner(ctx: CanvasRenderingContext2D, width = 1200, height = 300): void {
-  const bg = ctx.createLinearGradient(0, 0, width, height);
-  bg.addColorStop(0, '#020306');
-  bg.addColorStop(0.5, '#060a14');
-  bg.addColorStop(1, '#030509');
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, width, height);
-
-  ctx.fillStyle = '#ffffff';
-  ctx.font = '800 44px "Inter", sans-serif';
-  ctx.textAlign = 'left';
-  ctx.fillText('STARPLOT', 90, 125);
-
-  ctx.fillStyle = '#38bdf8';
-  ctx.font = '600 16px "JetBrains Mono", monospace';
-  ctx.fillText('ASTRONOMICAL FINE-ART PRINTS', 90, 160);
-
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
-  ctx.font = '400 14px "Inter", sans-serif';
-  ctx.fillText('Celestial sky positions bridged with astrophysics.', 90, 195);
-  ctx.fillText('Gaia DR3 & NASA 2MASS Survey Data · 300 DPI Vector Precision', 90, 220);
-
-  const skyX = 990;
-  const skyY = 150;
-  const skyR = 85;
-
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.arc(skyX, skyY, skyR, 0, Math.PI * 2);
-  ctx.stroke();
-
-  // Diagonal luminous star strands across right field (matching conceptual spec)
-  const strandColors = ['#f59e0b', '#fbbf24', '#f8fafc', '#93c5fd', '#60a5fa', '#f59e0b', '#facc15'];
-  for (let i = 0; i < 32; i++) {
-    const angle = (i / 32) * Math.PI * 2;
-    const r = 18 + Math.sin(i * 3.7) * 55;
-    const sx = skyX + Math.cos(angle) * r;
-    const sy = skyY + Math.sin(angle) * r;
-
-    const ex = 680 + (i % 8) * 45;
-    const ey = 35 + (i / 32) * 230;
-
-    const col = strandColors[i % strandColors.length];
-    const isHeroStrand = i === 4 || i === 12 || i === 20;
-
-    ctx.save();
-    ctx.strokeStyle = col;
-    ctx.globalAlpha = isHeroStrand ? 0.75 : 0.22;
-    ctx.lineWidth = isHeroStrand ? 2.8 : 1.2;
-    ctx.beginPath();
-    ctx.moveTo(sx, sy);
-    ctx.bezierCurveTo(sx - 140, sy - 20, ex + 140, ey + 20, ex, ey);
-    ctx.stroke();
-    ctx.restore();
-
-    ctx.fillStyle = col;
-    ctx.globalAlpha = 0.85;
-    ctx.beginPath();
-    ctx.arc(sx, sy, isHeroStrand ? 3.0 : 1.8, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // Conceptual guiding labels inspired by Image 1
-  ctx.save();
-  ctx.textAlign = 'center';
-  ctx.font = '600 12px "JetBrains Mono", monospace';
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.50)';
-  ctx.fillText('THE SKY — WHERE THE STARS ARE', 840, 95);
-  ctx.fillText('THE DIAGRAM — WHAT THE STARS ARE', 840, 215);
-  ctx.restore();
-
-  ctx.globalAlpha = 1.0;
 }
 
 
