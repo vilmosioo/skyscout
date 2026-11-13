@@ -1,5 +1,47 @@
 # starplot
 
+## 0.6.0
+
+### Minor Changes
+
+- 9165c63: Enhance StarPlot with interactive poster zoom/pan, authentic Solar Neighborhood heliocentric mapping, and famous star callouts:
+
+  - **Interactive Zoom & Pan**:
+    - Added smooth cursor-centered mouse wheel zooming (1× to 6×) and click-and-drag panning on the poster canvas stage.
+    - Added double-click to toggle between 1× overview and 2.5× detailed inspection.
+    - Added touch gesture support for mobile/tablet devices (pinch-to-zoom and one-finger drag).
+    - Added floating glassmorphic zoom toolbar featuring `+` / `−` controls, live zoom percentage indicator, and one-click `⟲ Reset` view action.
+  - **Solar Neighborhood Heliocentric Mapping**:
+    - Tailored `solar-50pc` preset to render an authentic 3D heliocentric distance projection centered on `☉ Sun (0 pc)` with concentric range rings at 10 pc (33 ly), 25 pc (82 ly), and 40 pc (130 ly).
+    - Added iconic nearby stars (Sirius, Alpha Centauri, Vega, Arcturus, Procyon, Altair) with true astrophysical properties and distances.
+  - **Famous Cluster Stars & Bright Member Highlights**:
+    - Added `FAMOUS_CLUSTER_STARS` catalog mapping iconic named stars across presets (e.g. Alcyone, Atlas, and Electra in Pleiades; Mirfak in Alpha Persei; κ Crucis in Jewel Box).
+    - Rendered multi-layer glowing bezier strands, radial halos, reticle brackets, and typographic callouts connecting celestial coordinates to the H–R diagram.
+  - **Header Layout & Typography**:
+    - Elevated poster titles, constellation, distance, and age metadata to the top of all poster themes (`Two Maps`, `Night Fall`, `Star Quilt`).
+    - Added top-right header featuring catalog code and celestial coordinates (or solar bubble indicator).
+    - Removed survey image cutout preloading to eliminate 404 network requests and maintain pure vector rendering at 300 DPI.
+  - **Etsy Quick Launch Kit**:
+    - Added in-app `🛍️ Etsy Launch Kit` modal on the poster view.
+    - Generates realistic lifestyle room mockups in natural oak frames (`2400 × 2000 px`).
+    - Generates macro detail crop mockups (`2000 × 2000 px`) highlighting glowing strands and typography.
+    - Provides 1-click copy for SEO-optimized title, 13 exact-match Etsy search tags, full description, and suggested pricing.
+
+### Patch Changes
+
+- 98d8121: Align Cascade poster rendering with original specification and enhance Etsy shop launch assets:
+  - Wide celestial sky canopy spanning across the upper poster with robust angular coordinate dispersion
+  - Fixed Local Bubble (Solar <50 pc) Cascade rendering: anchored to a 50 pc heliocentric sphere with Sun at center and smooth radiant streams down to the H-R diagram, eliminating line cross-hatching
+  - Set official Etsy shop brand name to "StarPlot" across all logo, banner, and launch assets
+  - Integrated conceptual guiding annotations ("THE SKY — WHERE THE STARS ARE" / "THE 50 PC SPHERE — WHERE THE STARS ARE" and "THE DIAGRAM — WHAT THE STARS ARE")
+  - Added "SKY + DIAGRAM" header and matched explanatory footer typography
+  - Refined Etsy shop banner and logo canvas generators with luminous star strands and direct download helper page
+- 98e6956: Streamline poster detail view and clean up temporary Etsy branding assets:
+  - Removed temporary Etsy banner and icon generation code
+  - Streamlined poster header actions with direct access to 18x24" poster download, framed room mockup, and macro detail crop
+- 98e6956: Fix poster header download button styles and layout: unified height, prevented awkward multi-line text wrapping with white-space nowrap, and added clear visual hierarchy between primary deliverable download and secondary mockup exports.
+- 98e6956: Fix overlapping text labels on astronomical posters by introducing an anti-collision layout engine with guaranteed vertical shelf separation (minimum 64px) and adaptive left/right cluster distribution.
+
 ## 0.5.0
 
 ### Minor Changes
