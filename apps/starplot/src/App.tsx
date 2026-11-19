@@ -166,7 +166,14 @@ function ClusterPosterView() {
 
   const [activeTheme, setActiveTheme] = useState<PosterThemeId>('two-maps');
 
-  const nasaClient = useMemo(() => new NasaClient(), []);
+  const nasaClient = useMemo(
+    () =>
+      new NasaClient({
+        ipacTapEndpoint: import.meta.env.VITE_NASA_IPAC_ENDPOINT || '/api/nasa/ipac',
+        mastTapEndpoint: import.meta.env.VITE_NASA_MAST_ENDPOINT || '/api/nasa/mast',
+      }),
+    []
+  );
   const [stars, setStars] = useState<GaiaStar[]>(() => {
     return getCachedNasaStars(preset.id, 1000) ?? generateClusterFallbackStars(preset);
   });
