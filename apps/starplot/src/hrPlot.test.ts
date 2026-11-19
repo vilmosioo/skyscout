@@ -681,8 +681,8 @@ describe('fetchTargetStars Live Dispatch & Local Caching', () => {
         mockPosterCanvas,
         expect.any(Number),
         expect.any(Number),
-        900,
-        1200
+        1245,
+        1660
       );
 
       // 2. Macro detail crop

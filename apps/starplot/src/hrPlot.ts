@@ -2884,7 +2884,7 @@ export function renderTwoMapsPoster(options: {
   ctx.font = '400 22px "JetBrains Mono", monospace';
   ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
   ctx.fillText(
-    'ESA GAIA DR3 ASTROMETRY · STELLAR POPULATION ARCHIVE · 300 DPI',
+    'NASA IPAC 2MASS ALL-SKY SURVEY · U.S. PUBLIC DOMAIN · 300 DPI',
     hrBox.left,
     6545
   );
@@ -3676,7 +3676,7 @@ export function renderGalleryPosterCanvas(options: {
   const columns = [
     {
       label: 'CATALOG ID',
-      value: primaryPreset?.catalogCode ?? primaryPreset?.shortName ?? 'GAIA DR3',
+      value: primaryPreset?.catalogCode ?? primaryPreset?.shortName ?? 'NASA 2MASS',
     },
     {
       label: 'CLASSIFICATION',
@@ -3719,7 +3719,7 @@ export function renderGalleryPosterCanvas(options: {
   // Curated description
   const description =
     primaryPreset?.subtitle ??
-    'Astrometric and photometric measurement of stellar population members observed by the Gaia spacecraft.';
+    'Astrometric and photometric measurement of stellar population members from NASA 2MASS infrared survey archives.';
   ctx.font = `400 35px "Inter", sans-serif`;
   ctx.fillStyle = scheme.axisTextColor;
   ctx.fillText(description, centerX, 5840);
@@ -3838,121 +3838,107 @@ export function renderFramedRoomMockup(options: {
     frameStyle = 'natural-oak',
   } = options;
 
-  // 1. Ambient wall background with warm gallery lighting
-  const wallGrad = ctx.createRadialGradient(width * 0.35, height * 0.3, 100, width * 0.5, height * 0.5, width * 0.85);
-  wallGrad.addColorStop(0, '#f5f3ee');
-  wallGrad.addColorStop(0.5, '#eae6de');
-  wallGrad.addColorStop(1, '#dad5cb');
+  // 1. Sophisticated architectural gallery wall with directional spotlight
+  const wallGrad = ctx.createRadialGradient(
+    width * 0.36,
+    height * 0.28,
+    140,
+    width * 0.5,
+    height * 0.5,
+    width * 0.88
+  );
+  wallGrad.addColorStop(0, '#f9f7f2');
+  wallGrad.addColorStop(0.4, '#eee9de');
+  wallGrad.addColorStop(0.8, '#ded6c7');
+  wallGrad.addColorStop(1, '#cdc3b2');
   ctx.fillStyle = wallGrad;
   ctx.fillRect(0, 0, width, height);
 
-  // 2. Minimalist oak credenza / console surface at bottom
-  const tableY = height - 160;
-  const tableGrad = ctx.createLinearGradient(0, tableY, 0, height);
-  tableGrad.addColorStop(0, '#cca87c');
-  tableGrad.addColorStop(0.08, '#be9869');
-  tableGrad.addColorStop(1, '#93724a');
-  ctx.fillStyle = tableGrad;
-  ctx.fillRect(0, tableY, width, 160);
+  // Subtle architectural vertical shadow on right edge to give room depth
+  const roomDepth = ctx.createLinearGradient(width - 350, 0, width, 0);
+  roomDepth.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  roomDepth.addColorStop(1, 'rgba(0, 0, 0, 0.08)');
+  ctx.fillStyle = roomDepth;
+  ctx.fillRect(width - 350, 0, 350, height);
 
-  // Table surface top highlight bevel
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(0, tableY);
-  ctx.lineTo(width, tableY);
-  ctx.stroke();
+  // 2. High-Impact Hero Artwork Geometry (fills ~86% of vertical canvas)
+  const artH = 1660;
+  const artW = Math.round(artH * (3 / 4)); // 1245 px (exact 3:4 ratio)
+  const frameBorder = 22; // Sleek modern gallery profile
+  const totalW = artW + frameBorder * 2; // 1289 px
+  const totalH = artH + frameBorder * 2; // 1704 px
+  const frameX = Math.round((width - totalW) / 2);
+  const frameY = Math.round((height - totalH) / 2);
 
-  // Subtle contact shadow below the wall / above the credenza
-  const edgeShadow = ctx.createLinearGradient(0, tableY - 30, 0, tableY);
-  edgeShadow.addColorStop(0, 'rgba(0, 0, 0, 0)');
-  edgeShadow.addColorStop(1, 'rgba(0, 0, 0, 0.14)');
-  ctx.fillStyle = edgeShadow;
-  ctx.fillRect(0, tableY - 30, width, 30);
-
-  // 3. Frame geometry (exact 3:4 aspect ratio artwork)
-  const artW = 900;
-  const artH = 1200;
-  const matBorder = 48;
-  const frameBorder = 36;
-  const totalW = artW + (matBorder + frameBorder) * 2; // 1068
-  const totalH = artH + (matBorder + frameBorder) * 2; // 1368
-  const frameX = (width - totalW) / 2;
-  const frameY = 240;
-
-  // 4. Multi-layer realistic frame drop shadows
+  // 3. Multi-layer 3D floating frame drop shadows
+  // Layer A: Deep soft ambient occlusion shadow
   ctx.save();
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.16)';
-  ctx.shadowBlur = 60;
-  ctx.shadowOffsetX = 18;
+  ctx.shadowColor = 'rgba(15, 23, 42, 0.26)';
+  ctx.shadowBlur = 65;
+  ctx.shadowOffsetX = 20;
   ctx.shadowOffsetY = 36;
   ctx.fillStyle = '#000000';
   ctx.fillRect(frameX, frameY, totalW, totalH);
   ctx.restore();
 
+  // Layer B: Crisp directional contact shadow
   ctx.save();
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.22)';
+  ctx.shadowColor = 'rgba(15, 23, 42, 0.20)';
   ctx.shadowBlur = 18;
-  ctx.shadowOffsetX = 6;
+  ctx.shadowOffsetX = 8;
   ctx.shadowOffsetY = 14;
   ctx.fillStyle = '#000000';
   ctx.fillRect(frameX, frameY, totalW, totalH);
   ctx.restore();
 
-  // 5. Outer wooden / metallic frame
+  // 4. Outer Gallery Frame (Sleek Profile)
   if (frameStyle === 'natural-oak') {
     const oakGrad = ctx.createLinearGradient(frameX, frameY, frameX + totalW, frameY + totalH);
-    oakGrad.addColorStop(0, '#c79d6b');
-    oakGrad.addColorStop(0.4, '#d8b283');
-    oakGrad.addColorStop(0.7, '#ba905e');
-    oakGrad.addColorStop(1, '#a67d4f');
+    oakGrad.addColorStop(0, '#d8b284');
+    oakGrad.addColorStop(0.3, '#e5c598');
+    oakGrad.addColorStop(0.65, '#cb9f6e');
+    oakGrad.addColorStop(1, '#b08453');
     ctx.fillStyle = oakGrad;
   } else {
     const blackGrad = ctx.createLinearGradient(frameX, frameY, frameX + totalW, frameY + totalH);
-    blackGrad.addColorStop(0, '#27272a');
-    blackGrad.addColorStop(0.5, '#18181b');
-    blackGrad.addColorStop(1, '#09090b');
+    blackGrad.addColorStop(0, '#2b2d35');
+    blackGrad.addColorStop(0.5, '#191a20');
+    blackGrad.addColorStop(1, '#0e0f14');
     ctx.fillStyle = blackGrad;
   }
   ctx.fillRect(frameX, frameY, totalW, totalH);
 
-  // Frame bevel highlight & shadow
-  ctx.strokeStyle = frameStyle === 'natural-oak' ? 'rgba(255, 255, 255, 0.35)' : 'rgba(255, 255, 255, 0.15)';
+  // Frame outer bevel highlight (light from top-left)
+  ctx.strokeStyle = frameStyle === 'natural-oak' ? 'rgba(255, 255, 255, 0.55)' : 'rgba(255, 255, 255, 0.22)';
   ctx.lineWidth = 1.5;
   ctx.strokeRect(frameX + 1, frameY + 1, totalW - 2, totalH - 2);
 
-  // 6. Archival off-white mat border (passe-partout)
-  const matX = frameX + frameBorder;
-  const matY = frameY + frameBorder;
-  const matW = totalW - frameBorder * 2;
-  const matH = totalH - frameBorder * 2;
-
-  ctx.fillStyle = '#faf8f5';
-  ctx.fillRect(matX, matY, matW, matH);
-
-  // Mat inner bevel shadow
-  ctx.strokeStyle = '#dfd9cc';
+  // Frame shadow on bottom-right edges
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.45)';
   ctx.lineWidth = 1.5;
-  ctx.strokeRect(matX, matY, matW, matH);
+  ctx.beginPath();
+  ctx.moveTo(frameX + totalW, frameY);
+  ctx.lineTo(frameX + totalW, frameY + totalH);
+  ctx.lineTo(frameX, frameY + totalH);
+  ctx.stroke();
 
-  // 7. Render artwork inside frame opening
-  const innerArtX = matX + matBorder;
-  const innerArtY = matY + matBorder;
+  // 5. Render Full-Bleed Artwork directly inside frame
+  const innerArtX = frameX + frameBorder;
+  const innerArtY = frameY + frameBorder;
 
   ctx.drawImage(posterCanvas, innerArtX, innerArtY, artW, artH);
 
-  // Inner art opening drop shadow from mat
-  ctx.strokeStyle = 'rgba(0, 0, 0, 0.28)';
-  ctx.lineWidth = 2;
+  // Inner frame edge shadow (contact shadow where paper sits inside moulding)
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.42)';
+  ctx.lineWidth = 2.5;
   ctx.strokeRect(innerArtX, innerArtY, artW, artH);
 
-  // 8. Subtle glass reflection
-  const glassGrad = ctx.createLinearGradient(innerArtX, innerArtY, innerArtX + artW, innerArtY + artH);
+  // 6. Subtle Museum Glass Sheen (diagonal light sweep across corner)
+  const glassGrad = ctx.createLinearGradient(innerArtX, innerArtY, innerArtX + artW * 0.8, innerArtY + artH * 0.8);
   glassGrad.addColorStop(0, 'rgba(255, 255, 255, 0.08)');
-  glassGrad.addColorStop(0.35, 'rgba(255, 255, 255, 0.02)');
-  glassGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.0)');
-  glassGrad.addColorStop(0.85, 'rgba(255, 255, 255, 0.02)');
-  glassGrad.addColorStop(1, 'rgba(255, 255, 255, 0.05)');
+  glassGrad.addColorStop(0.2, 'rgba(255, 255, 255, 0.03)');
+  glassGrad.addColorStop(0.42, 'rgba(255, 255, 255, 0.0)');
+  glassGrad.addColorStop(1, 'rgba(255, 255, 255, 0.0)');
   ctx.fillStyle = glassGrad;
   ctx.fillRect(innerArtX, innerArtY, artW, artH);
 }
@@ -4034,16 +4020,25 @@ export function getEtsyListingCopy(
     'dark academia space',
   ].slice(0, 13);
 
-  const description = `✨ ${formattedTitle.toUpperCase()} (${preset.catalogCode ?? preset.shortName}) — DUAL-MAP ASTRONOMICAL FINE-ART PRINT
+  const isNightFall = themeId === 'night-fall';
+  const themeHeader = isNightFall ? 'CASCADE ASTRONOMICAL POSTER' : 'DUAL-MAP ASTRONOMICAL POSTER';
 
-Where celestial position meets stellar physics.
+  const description = `✨ ${formattedTitle.toUpperCase()} (${preset.catalogCode ?? preset.shortName}) — ${themeHeader}
 
-This astronomical chart presents two interconnected perspectives of ${isSolar ? 'our local solar neighborhood out to 50 pc (163 ly)' : `${formattedTitle} (${preset.category.toLowerCase()} in ${constellation})`}:
-• Top: True celestial sky coordinates showing where the stars sit in the night sky.
+Where celestial position meets stellar astrophysics.
+
+This astronomical poster presents two interconnected scientific perspectives of ${isSolar ? 'our local solar neighborhood out to 50 pc (163 ly)' : `${formattedTitle} (${preset.category.toLowerCase()} in ${constellation})`}:
+${
+  isNightFall
+    ? `• Top: True celestial sky coordinates showing cluster stars positioned as they appear in the night sky.
+• Bottom: Hertzsprung–Russell diagram sorting cluster stars by surface temperature (hot blue at left) and luminosity (brilliant at top).
+• Luminous strands cascade continuously from each star's celestial sky coordinates directly into its physical astrophysical state.`
+    : `• Top: True celestial sky coordinates showing where the stars sit in the night sky.
 • Bottom: Hertzsprung–Russell diagram sorting cluster stars by true surface temperature (hot blue at left) and luminosity (brilliant at top).
-• Delicate luminous threads join the brightest iconic stars directly between their sky location and their physical astrophysical state.
+• Delicate luminous threads join the brightest iconic stars directly between their sky location and their physical astrophysical state.`
+}
 
-Synthesized from authentic Gaia DR3 and NASA 2MASS infrared astronomical survey archives.
+Synthesized from authentic NASA 2MASS infrared astronomical survey archives.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
