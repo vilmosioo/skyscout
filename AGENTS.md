@@ -29,3 +29,6 @@ Guidelines and constraints for AI coding assistants working in the SkyScout repo
 
 ## 5. Changesets & Changelogs
 - **Always write changelog**: For all features, fixes, or user-facing changes, always write a changeset entry in `.changeset/<feature-name>.md` specifying the affected package(s) and change level (`major`, `minor`, `patch`).
+
+## 6. Documentation & README Maintenance
+- **Always update READMEs**: Always keep the root `README.md` and relevant package/app `README.md` files accurate and up to date whenever adding features, architecture changes, new packages, endpoints, or UI capabilities. Never leave READMEs describing stale configurations or missing monorepo packages.

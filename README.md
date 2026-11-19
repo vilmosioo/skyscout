@@ -21,11 +21,15 @@ skyscout/
 │       └── release.yml       # Automated npm publishing with provenance via Changesets
 ├── apps/
 │   ├── skyscout/             # skyscout (Vite 6 + React 18 interactive alert dashboard)
-│   └── starplot/             # starplot (Live Gaia DR3 Hertzsprung-Russell diagram viewer)
+│   └── starplot/             # starplot (300 DPI Fine-Art H–R Diagram & Cluster Catalog)
+├── functions/                # Cloudflare Pages edge functions (Gaia TAP proxy + SHA-256 edge cache)
 ├── packages/
 │   ├── core/                 # @skyscout/core (Shared astronomical math & coordinates)
-│   ├── gaia-client/          # @skyscout/gaia-client (ESA Gaia Archive client)
-│   └── lasair-client/        # @skyscout/lasair-client (Published to npm)
+│   ├── gaia-client/          # @skyscout/gaia-client (ESA Gaia Archive TAP client)
+│   ├── hips-client/          # @skyscout/hips-client (IVOA HiPS & CDS hips2fits cutouts)
+│   ├── lasair-client/        # @skyscout/lasair-client (Lasair Rubin LSST alert broker)
+│   ├── nasa-client/          # @skyscout/nasa-client (NASA IPAC 2MASS & STScI MAST TAP)
+│   └── skyview-client/       # @skyscout/skyview-client (NASA SkyView 100+ survey image service)
 ├── turbo.json                # Turborepo task pipeline configuration
 ├── package.json              # Monorepo root manifest
 ├── tsconfig.base.json        # Shared TypeScript compiler options
@@ -40,10 +44,13 @@ skyscout/
 | Package / App | Version | Description |
 | :--- | :--- | :--- |
 | [`@skyscout/core`](./packages/core) | `1.1.0` | Shared astronomical mathematics, time transformations, coordinate geometry, and photometry math |
-| [`@skyscout/gaia-client`](./packages/gaia-client) | `1.0.0` | Fully-typed TypeScript client for the ESA Gaia Archive stellar catalog |
+| [`@skyscout/gaia-client`](./packages/gaia-client) | `2.0.2` | Fully-typed TypeScript client for the ESA Gaia Archive stellar catalog |
+| [`@skyscout/hips-client`](./packages/hips-client) | `1.1.0` | Client for IVOA HiPS full-sky surveys and CDS `hips2fits` cutout generation |
 | [`@skyscout/lasair-client`](./packages/lasair-client) | `2.0.1` | Fully-typed TypeScript client for the Lasair Rubin alert broker |
-| [`skyscout`](./apps/skyscout) | `0.2.0` | Interactive web dashboard demonstrating alert queries, light curves, cone search, and Sherlock context |
-| [`starplot`](./apps/starplot) | `0.1.0` | Live Gaia DR3 Hertzsprung–Russell (H–R) diagram web application |
+| [`@skyscout/nasa-client`](./packages/nasa-client) | `2.0.0` | Client for NASA IPAC (2MASS All-Sky) and STScI MAST (TESS TIC, Hubble) archives |
+| [`@skyscout/skyview-client`](./packages/skyview-client) | `1.1.0` | Client for NASA GSFC SkyView image cutout service across 100+ space surveys |
+| [`skyscout`](./apps/skyscout) | `0.2.0` | Interactive web dashboard for Rubin LSST alert queries, light curves, cone search, and Sherlock context |
+| [`starplot`](./apps/starplot) | `0.6.0` | Live Gaia DR3 & 2MASS H–R diagram catalog and 18×24" 300 DPI fine-art poster generator ([starplot.vilmosioo.dev](https://starplot.vilmosioo.dev)) |
 
 ---
 
