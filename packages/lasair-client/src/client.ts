@@ -38,14 +38,19 @@ export class LasairClient {
   private readonly timeoutMs: number;
   private readonly customFetch?: typeof fetch;
 
-  constructor(config: LasairConfig) {
-    if (!config?.token || typeof config.token !== 'string' || config.token.trim() === '') {
-      throw new LasairAuthError('Lasair authentication token is required to initialize LasairClient.');
+  constructor(config: LasairConfig = {}) {
+    const hasToken = typeof config?.token === 'string' && config.token.trim() !== '';
+    const hasCustomEndpoint = typeof config?.endpoint === 'string' && config.endpoint.trim() !== '';
+
+    if (!hasToken && !hasCustomEndpoint) {
+      throw new LasairAuthError(
+        'Lasair authentication token is required unless connecting via an authenticated backend proxy endpoint.'
+      );
     }
-    this.token = config.token.trim();
-    this.endpoint = (config.endpoint ?? DEFAULT_ENDPOINT).replace(/\/+$/, '');
-    this.timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-    this.customFetch = config.fetch;
+    this.token = (config?.token ?? '').trim();
+    this.endpoint = (config?.endpoint ?? DEFAULT_ENDPOINT).replace(/\/+$/, '');
+    this.timeoutMs = config?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    this.customFetch = config?.fetch;
   }
 
   /**
@@ -60,13 +65,17 @@ export class LasairClient {
 
     let response: Response;
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      };
+      if (this.token) {
+        headers.Authorization = `Token ${this.token}`;
+      }
+
       response = await fetchFn(url, {
         method: 'POST',
-        headers: {
-          Authorization: `Token ${this.token}`,
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
+        headers,
         body: JSON.stringify(payload),
         signal: controller.signal,
       });

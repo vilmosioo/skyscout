@@ -116,14 +116,23 @@ export function TransientInspector({ source, objectId }: { source: RubinDiaSourc
 
 ## Configuration & Environment
 
-The web app requires a single environment variable configured in `.env` at the monorepo root:
+The web app supports two deployment and authentication models:
+
+### 1. Cloudflare Pages Deployment (Production)
+In production, authentication is handled completely server-side via Cloudflare Pages Function proxies:
+* Store `LASAIR_TOKEN` securely as an environment variable in Cloudflare Pages Dashboard (**Settings** $\rightarrow$ **Environment variables**).
+* Client queries route through the edge proxy at `/api/lasair/*` (`functions/api/lasair/[[path]].ts`), which injects the `LASAIR_TOKEN` server-side, adds permissive CORS headers, and caches historical object queries for 24 hours.
+* **Zero secret exposure**: No API tokens are baked into the compiled client JavaScript bundle.
+
+### 2. Local Development
+For local testing, configure `.env` at the monorepo root:
 
 ```env
-VITE_LASAIR_TOKEN=your_lasair_token_here
+LASAIR_TOKEN=your_lasair_token_here
 ```
 
 * Obtain a free token at [lasair.lsst.ac.uk/users/register](https://lasair.lsst.ac.uk/users/register/).
-* In browser runtime, requests are seamlessly proxied through the local Vite reverse proxy (`/api` $\rightarrow$ `https://api.lasair.lsst.ac.uk`) to eliminate browser CORS preflight `401` errors.
+* In local dev, Vite automatically injects `LASAIR_TOKEN` from root `.env` into local reverse proxies (`/api/lasair` and `/api`), avoiding browser CORS preflight blocks.
 
 ---
 

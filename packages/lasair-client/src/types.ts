@@ -1,6 +1,6 @@
 export interface LasairConfig {
-  /** Lasair authentication token */
-  token: string;
+  /** Lasair authentication token (optional when connecting via an authenticated backend proxy) */
+  token?: string;
   /** Base API endpoint URL (defaults to 'https://api.lasair.lsst.ac.uk/api') */
   endpoint?: string;
   /** Request timeout in milliseconds (defaults to 60,000ms) */

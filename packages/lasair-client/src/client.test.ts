@@ -21,6 +21,11 @@ describe('LasairClient Initialization', () => {
     expect(client).toBeInstanceOf(LasairClient);
   });
 
+  it('initializes successfully with a custom proxy endpoint without an explicit token', () => {
+    const client = new LasairClient({ endpoint: '/api/lasair' });
+    expect(client).toBeInstanceOf(LasairClient);
+  });
+
   it('does not read from environment variables (pure environment-agnostic library)', () => {
     const originalEnv = process.env.LASAIR_TOKEN;
     try {
