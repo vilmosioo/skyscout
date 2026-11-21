@@ -28,7 +28,9 @@ export class HipsClient {
   constructor(config: HipsClientConfig = {}) {
     this.endpoint = config.endpoint ?? DEFAULT_HIPS2FITS_ENDPOINT;
     this.defaultTimeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-    this.fetchFn = config.fetch ?? fetch;
+    this.fetchFn =
+      config.fetch ??
+      ((input: RequestInfo | URL, init?: RequestInit) => globalThis.fetch(input, init));
   }
 
   /**

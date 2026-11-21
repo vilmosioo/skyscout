@@ -86,7 +86,7 @@ export class NasaClient {
   private get fetchFn(): typeof fetch {
     if (this.customFetch) return this.customFetch;
     if (typeof globalThis !== 'undefined' && typeof globalThis.fetch === 'function') {
-      return globalThis.fetch;
+      return (input: RequestInfo | URL, init?: RequestInit) => globalThis.fetch(input, init);
     }
     throw new NasaError(
       'No web-standard fetch implementation found in runtime. Please provide a fetch polyfill in NasaClientConfig.'

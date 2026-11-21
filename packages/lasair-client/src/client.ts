@@ -53,7 +53,9 @@ export class LasairClient {
    */
   private async post<T>(method: string, payload: Record<string, unknown>): Promise<T> {
     const url = `${this.endpoint}/${method}/`;
-    const fetchFn = this.customFetch ?? globalThis.fetch;
+    const fetchFn =
+      this.customFetch ??
+      ((input: RequestInfo | URL, init?: RequestInit) => globalThis.fetch(input, init));
 
     const controller = new AbortController();
     const timeoutTimer = setTimeout(() => controller.abort(), this.timeoutMs);

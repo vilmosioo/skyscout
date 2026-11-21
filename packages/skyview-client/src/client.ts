@@ -42,7 +42,9 @@ export class SkyviewClient {
   constructor(config: SkyviewClientConfig = {}) {
     this.baseUrl = (config.baseUrl ?? DEFAULT_SKYVIEW_BASE_URL).replace(/\/+$/, '');
     this.defaultTimeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-    this.fetchFn = config.fetch ?? fetch;
+    this.fetchFn =
+      config.fetch ??
+      ((input: RequestInfo | URL, init?: RequestInit) => globalThis.fetch(input, init));
   }
 
   /**

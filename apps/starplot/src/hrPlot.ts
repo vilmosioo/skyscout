@@ -722,7 +722,7 @@ export const TARGET_PRESETS: TargetPreset[] = [
   },
 ];
 
-export const NASA_CACHE_KEY_PREFIX = 'starplot:nasa:v1:';
+export const NASA_CACHE_KEY_PREFIX = 'starplot:nasa:v2:';
 const nasaMemoryCache = new Map<string, GaiaStar[]>();
 const nasaInFlightRequests = new Map<string, Promise<GaiaStar[]>>();
 
@@ -830,9 +830,7 @@ export async function fetchNasaClusterStars(
       });
 
       if (nasaStars.length === 0) {
-        const fallback = generateClusterFallbackStars(preset);
-        setCachedNasaStars(targetId, limit, fallback, storage);
-        return fallback;
+        return generateClusterFallbackStars(preset);
       }
 
       const stars: GaiaStar[] = nasaStars.map((s, idx) => {
@@ -872,9 +870,7 @@ export async function fetchNasaClusterStars(
       return stars;
     } catch (err) {
       console.warn(`NASA query failed for ${preset.label}, falling back to synthesized stars:`, err);
-      const fallback = generateClusterFallbackStars(preset);
-      setCachedNasaStars(targetId, limit, fallback, storage);
-      return fallback;
+      return generateClusterFallbackStars(preset);
     } finally {
       nasaInFlightRequests.delete(key);
     }

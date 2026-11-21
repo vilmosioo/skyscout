@@ -452,7 +452,9 @@ export class GaiaClient {
     }
 
     const url = `${this.endpoint}/sync`;
-    const fetchFn = this.customFetch ?? globalThis.fetch;
+    const fetchFn =
+      this.customFetch ??
+      ((input: RequestInfo | URL, init?: RequestInit) => globalThis.fetch(input, init));
 
     const bodyParams = new URLSearchParams({
       REQUEST: 'doQuery',
