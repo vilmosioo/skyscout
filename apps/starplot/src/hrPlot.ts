@@ -3272,18 +3272,6 @@ export function renderNightFallPoster(options: {
     ctx.restore();
   }
 
-  // Subtle conceptual labels bridging the sky and diagram
-  ctx.save();
-  ctx.textAlign = 'center';
-  ctx.font = '600 28px "JetBrains Mono", monospace';
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.28)';
-  ctx.fillText(
-    isSolarVolume ? 'THE 50 PC SPHERE — WHERE THE STARS ARE' : 'THE SKY — WHERE THE STARS ARE',
-    centerX,
-    2850
-  );
-  ctx.fillText('THE DIAGRAM — WHAT THE STARS ARE', centerX, 3500);
-  ctx.restore();
 
   // Pinpoint stars at sky position and diagram position
   for (const item of starData) {
