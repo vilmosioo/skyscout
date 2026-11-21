@@ -66,7 +66,7 @@ describe('GaiaClient Initialization', () => {
   it('accepts custom endpoint, timeoutMs, and fetch implementation', () => {
     const mockFetch = vi.fn();
     const client = new GaiaClient({
-      endpoint: '/gaia-tap/',
+      endpoint: '/api/gaia/',
       timeoutMs: 15_000,
       fetch: mockFetch as unknown as typeof fetch,
     });

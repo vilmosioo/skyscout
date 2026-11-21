@@ -18,7 +18,7 @@ Live deployment: [starplot.vilmosioo.dev](https://starplot.vilmosioo.dev)
   - One-click high-resolution $5,400 \times 7,200\text{ px}$ lossless PNG export.
   - Features an editorial Clean Museum Edition typographic plaque block: J2000 coordinates, classification, distance, cluster age, and ESA Gaia DR3 / NASA IPAC 2MASS provenance.
 - **Resilient Edge Caching & Proxies**:
-  - **`/gaia-tap/*`**: High-performance proxy for ESA Gaia DR3 TAP queries with deterministic SHA-256 body-keyed edge caching (7-day TTL via `caches.default`).
+  - **`/api/gaia/*`**: High-performance proxy for ESA Gaia DR3 TAP queries with deterministic SHA-256 body-keyed edge caching (7-day TTL via `caches.default`).
   - **`/api/nasa/*`**: High-performance proxy for NASA IPAC/IRSA 2MASS and STScI MAST TAP queries with deterministic SHA-256 body-keyed edge caching.
   - **`/api/skyview/*`**: NASA Goddard SkyView cutout proxy with CORS injection and 30-day edge caching, preventing canvas-tainting during 300 DPI exports.
   - **`/api/hips/*`**: IVOA CDS hips2fits cutout proxy with CORS injection and 30-day edge caching.

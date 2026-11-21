@@ -7,7 +7,7 @@ import type { SpectralClass } from '@skyscout/core';
 export interface GaiaClientConfig {
   /**
    * Base TAP endpoint URL (default: 'https://gea.esac.esa.int/tap-server/tap').
-   * Can be set to a local proxy path (e.g. '/gaia-tap') in browser environments if needed.
+   * Can be set to a local proxy path (e.g. '/api/gaia') in browser environments if needed.
    */
   endpoint?: string;
   /**

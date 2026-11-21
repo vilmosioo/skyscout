@@ -7,6 +7,12 @@ export default defineConfig({
     port: 3001,
     open: true,
     proxy: {
+      '/api/gaia': {
+        target: 'https://gea.esac.esa.int/tap-server/tap',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/api\/gaia/, ''),
+      },
       '/gaia-tap': {
         target: 'https://gea.esac.esa.int/tap-server/tap',
         changeOrigin: true,
