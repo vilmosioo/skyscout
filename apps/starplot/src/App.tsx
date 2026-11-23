@@ -7,7 +7,6 @@ import {
   downloadGalleryPoster,
   fetchNasaClusterStars,
   formatPosterTitle,
-  generateClusterFallbackStars,
   generateClusterPreviewPoints,
   getCachedNasaStars,
   HR_BOUNDS,
@@ -20,6 +19,11 @@ import {
   type TargetPreset,
 } from './hrPlot';
 
+const defaultNasaClient = new NasaClient({
+  ipacTapEndpoint: import.meta.env.VITE_NASA_IPAC_ENDPOINT || '/api/nasa/ipac',
+  mastTapEndpoint: import.meta.env.VITE_NASA_MAST_ENDPOINT || '/api/nasa/mast',
+});
+
 /**
  * Cluster card rendered on the Home Page grid.
  * Displays an authentic 3:4 miniature fine-art poster preview tailored to the
@@ -28,16 +32,71 @@ import {
 function ClusterCard({
   preset,
   themeId,
+  nasaClient = defaultNasaClient,
 }: {
   preset: TargetPreset;
   themeId: PosterThemeId;
+  nasaClient?: NasaClient;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const stars = useMemo(() => {
-    return getCachedNasaStars(preset.id, 1000) ?? generateClusterFallbackStars(preset);
-  }, [preset]);
+  const cardRef = useRef<HTMLAnchorElement | null>(null);
+  const [stars, setStars] = useState<GaiaStar[]>(() => {
+    return getCachedNasaStars(preset.id, 1000) ?? [];
+  });
+  const [loading, setLoading] = useState<boolean>(() => {
+    const cached = getCachedNasaStars(preset.id, 1000);
+    return !cached || cached.length === 0;
+  });
 
   useEffect(() => {
+    const cached = getCachedNasaStars(preset.id, 1000);
+    if (cached && cached.length > 0) {
+      setStars(cached);
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          observer.disconnect();
+          fetchNasaClusterStars(nasaClient, preset.id, 1000)
+            .then((liveStars) => {
+              if (!cancelled && liveStars && liveStars.length > 0) {
+                setStars(liveStars);
+              }
+            })
+            .finally(() => {
+              if (!cancelled) setLoading(false);
+            });
+        }
+      },
+      { rootMargin: '300px' }
+    );
+
+    if (cardRef.current) {
+      observer.observe(cardRef.current);
+    } else {
+      fetchNasaClusterStars(nasaClient, preset.id, 1000)
+        .then((liveStars) => {
+          if (!cancelled && liveStars && liveStars.length > 0) {
+            setStars(liveStars);
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    }
+
+    return () => {
+      cancelled = true;
+      observer.disconnect();
+    };
+  }, [preset.id, nasaClient]);
+
+  useEffect(() => {
+    if (stars.length === 0) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -51,8 +110,7 @@ function ClusterCard({
     ctx.save();
     ctx.scale(scale, scale);
 
-    const starList = stars.length > 0 ? stars : generateClusterFallbackStars(preset);
-    const tagged = starList.map((star) => ({
+    const tagged = stars.map((star) => ({
       star,
       sourceLabel: preset.shortName,
     }));
@@ -76,8 +134,13 @@ function ClusterCard({
       : `~${preset.distancePcApprox} pc`;
 
   return (
-    <Link href={`/cluster/${preset.id}?theme=${themeId}`} className="cluster-grid-card">
+    <Link ref={cardRef} href={`/cluster/${preset.id}?theme=${themeId}`} className="cluster-grid-card">
       <div className="card-thumb-wrap">
+        {loading && stars.length === 0 && (
+          <div className="card-thumb-loading">
+            <span>Querying 2MASS...</span>
+          </div>
+        )}
         <canvas ref={canvasRef} className="card-thumb-canvas" />
         <span className="card-age-tag">{preset.age}</span>
       </div>
@@ -166,9 +229,16 @@ function ClusterPosterView() {
 
   const [activeTheme, setActiveTheme] = useState<PosterThemeId>('two-maps');
 
-  const nasaClient = useMemo(() => new NasaClient(), []);
+  const nasaClient = useMemo(
+    () =>
+      new NasaClient({
+        ipacTapEndpoint: import.meta.env.VITE_NASA_IPAC_ENDPOINT || '/api/nasa/ipac',
+        mastTapEndpoint: import.meta.env.VITE_NASA_MAST_ENDPOINT || '/api/nasa/mast',
+      }),
+    []
+  );
   const [stars, setStars] = useState<GaiaStar[]>(() => {
-    return getCachedNasaStars(preset.id, 1000) ?? generateClusterFallbackStars(preset);
+    return getCachedNasaStars(preset.id, 1000) ?? [];
   });
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -340,8 +410,6 @@ function ClusterPosterView() {
       return;
     }
 
-    setStars(generateClusterFallbackStars(preset));
-
     fetchNasaClusterStars(nasaClient, preset.id, 1000)
       .then((liveStars) => {
         if (!cancelled && liveStars && liveStars.length > 0) {
@@ -349,7 +417,7 @@ function ClusterPosterView() {
         }
       })
       .catch((err) => {
-        console.warn('NASA TAP fetch notice (using cached/synthesized stars):', err);
+        console.warn('NASA TAP fetch notice:', err);
       });
 
     return () => {
@@ -371,8 +439,12 @@ function ClusterPosterView() {
     ctx.save();
     ctx.scale(scale, scale);
 
-    const starList = stars.length > 0 ? stars : generateClusterFallbackStars(preset);
-    const tagged = starList.map((star) => ({
+    if (stars.length === 0) {
+      ctx.restore();
+      return;
+    }
+
+    const tagged = stars.map((star) => ({
       star,
       sourceLabel: preset.shortName,
     }));
@@ -407,9 +479,8 @@ function ClusterPosterView() {
     master.width = 5400;
     master.height = 7200;
     const masterCtx = master.getContext('2d');
-    if (masterCtx) {
-      const starList = stars.length > 0 ? stars : generateClusterFallbackStars(preset);
-      const tagged = starList.map((star) => ({
+    if (masterCtx && stars.length > 0) {
+      const tagged = stars.map((star) => ({
         star,
         sourceLabel: preset.shortName,
       }));

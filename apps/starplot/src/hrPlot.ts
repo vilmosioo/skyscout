@@ -830,7 +830,7 @@ export async function fetchNasaClusterStars(
       });
 
       if (nasaStars.length === 0) {
-        return generateClusterFallbackStars(preset);
+        return [];
       }
 
       const stars: GaiaStar[] = nasaStars.map((s, idx) => {
@@ -869,8 +869,8 @@ export async function fetchNasaClusterStars(
       setCachedNasaStars(targetId, limit, stars, storage);
       return stars;
     } catch (err) {
-      console.warn(`NASA query failed for ${preset.label}, falling back to synthesized stars:`, err);
-      return generateClusterFallbackStars(preset);
+      console.warn(`NASA query failed for ${preset.label}:`, err);
+      return [];
     } finally {
       nasaInFlightRequests.delete(key);
     }

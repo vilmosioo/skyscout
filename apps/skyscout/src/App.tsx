@@ -44,17 +44,21 @@ type ClassificationFilter = 'SN' | 'NT' | 'CV' | 'AGN' | 'VS' | 'ALL';
 export default function App() {
   const envToken = import.meta.env.VITE_LASAIR_TOKEN || '';
   const token = envToken.trim();
+  const endpoint = import.meta.env.VITE_LASAIR_ENDPOINT || '/api/lasair';
+  const isProxyEndpoint = endpoint.startsWith('/') || endpoint.includes('api/lasair');
 
-  // Initialize LasairClient with local '/api' reverse proxy to avoid browser preflight CORS 401
+  // Initialize LasairClient with local or Cloudflare edge reverse proxy.
+  // When proxying via /api/lasair, the API token is securely injected server-side at the edge.
   const client = useMemo(() => {
-    if (!token) return null;
     try {
-      const endpoint = import.meta.env.VITE_LASAIR_ENDPOINT || '/api';
-      return new LasairClient({ token, endpoint });
+      return new LasairClient({
+        endpoint,
+        token: token || undefined,
+      });
     } catch {
       return null;
     }
-  }, [token]);
+  }, [endpoint, token]);
 
   // Query Filters
   const [classification, setClassification] = useState<ClassificationFilter>('SN');
@@ -91,7 +95,7 @@ export default function App() {
   // Primary Query Function
   const runQuery = useCallback(async () => {
     if (!client) {
-      setError('Missing VITE_LASAIR_TOKEN in .env. Please configure your token.');
+      setError('Lasair client could not be initialized.');
       return;
     }
 
@@ -244,14 +248,14 @@ export default function App() {
         </div>
       </header>
 
-      {/* Missing Token Alert */}
-      {!token && (
+      {/* Missing Token Alert (Only when connecting directly without an edge proxy) */}
+      {!token && !isProxyEndpoint && (
         <div className={styles.errorBox}>
           <strong>⚠️ Authentication Token Required:</strong> Add{' '}
           <code className="bg-red-950/60 px-1.5 py-0.5 rounded text-red-300 font-mono">
             VITE_LASAIR_TOKEN=your_token_here
           </code>{' '}
-          to your <code className="font-mono">.env</code> file in the repository root, then refresh the page.
+          to your <code className="font-mono">.env</code> file in the repository root or configure the Cloudflare edge proxy.
         </div>
       )}
 
@@ -287,7 +291,7 @@ export default function App() {
           <button
             type="button"
             onClick={runQuery}
-            disabled={loading || !token}
+            disabled={loading || !client}
             className={styles.runBtn}
           >
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />

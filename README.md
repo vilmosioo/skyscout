@@ -22,7 +22,7 @@ skyscout/
 ├── apps/
 │   ├── skyscout/             # skyscout (Vite 6 + React 18 interactive alert dashboard)
 │   └── starplot/             # starplot (300 DPI Fine-Art H–R Diagram & Cluster Catalog)
-├── functions/                # Cloudflare Pages edge functions (Gaia TAP proxy + SHA-256 edge cache)
+├── functions/api/            # Cloudflare Pages edge proxies (gaia, hips, lasair, nasa, skyview)
 ├── packages/
 │   ├── core/                 # @skyscout/core (Shared astronomical math & coordinates)
 │   ├── gaia-client/          # @skyscout/gaia-client (ESA Gaia Archive TAP client)

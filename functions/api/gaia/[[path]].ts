@@ -9,7 +9,7 @@ async function getCacheKeyUrl(requestUrl: string, bodyText: string): Promise<str
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   const hashHex = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
   const url = new URL(requestUrl);
-  return `${url.origin}/_cf_cache/gaia-tap/${hashHex}`;
+  return `${url.origin}/_cf_cache/gaia/${hashHex}`;
 }
 
 /**
