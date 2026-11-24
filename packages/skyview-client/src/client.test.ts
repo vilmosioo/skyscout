@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   SkyviewClient,
   SkyviewRateLimitError,
@@ -8,6 +8,9 @@ import {
 } from './index';
 
 describe('formatSkyviewPosition', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
   it('formats { ra, dec } objects into coordinate strings', () => {
     expect(formatSkyviewPosition({ ra: 56.75, dec: 24.12 })).toBe('56.750000, 24.120000');
   });
@@ -69,7 +72,8 @@ describe('SkyviewClient executeRequest & Error Hierarchy', () => {
       blob: () => Promise.resolve(mockBlob),
     });
 
-    const client = new SkyviewClient({ fetch: mockFetch as unknown as typeof fetch });
+    vi.stubGlobal('fetch', mockFetch);
+    const client = new SkyviewClient();
     const result = await client.fetchImageBlob({
       position: { ra: 88.07, dec: 32.55 },
       survey: '2MASS Color',
@@ -90,7 +94,8 @@ describe('SkyviewClient executeRequest & Error Hierarchy', () => {
       text: () => Promise.resolve('Rate limited'),
     });
 
-    const client = new SkyviewClient({ fetch: mockFetch as unknown as typeof fetch });
+    vi.stubGlobal('fetch', mockFetch);
+    const client = new SkyviewClient();
     await expect(
       client.fetchImageArrayBuffer({ position: 'M13' })
     ).rejects.toThrow(SkyviewRateLimitError);
@@ -104,7 +109,8 @@ describe('SkyviewClient executeRequest & Error Hierarchy', () => {
       text: () => Promise.resolve('Internal SkyView Server Error'),
     });
 
-    const client = new SkyviewClient({ fetch: mockFetch as unknown as typeof fetch });
+    vi.stubGlobal('fetch', mockFetch);
+    const client = new SkyviewClient();
     await expect(
       client.fetchFits({ position: 'M42' })
     ).rejects.toThrow(SkyviewRequestError);
@@ -121,8 +127,8 @@ describe('SkyviewClient executeRequest & Error Hierarchy', () => {
       });
     });
 
+    vi.stubGlobal('fetch', mockFetch);
     const client = new SkyviewClient({
-      fetch: mockFetch as unknown as typeof fetch,
       timeoutMs: 10,
     });
 

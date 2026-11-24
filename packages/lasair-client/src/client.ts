@@ -36,7 +36,6 @@ export class LasairClient {
   private readonly token: string;
   private readonly endpoint: string;
   private readonly timeoutMs: number;
-  private readonly customFetch?: typeof fetch;
 
   constructor(config: LasairConfig = {}) {
     const hasToken = typeof config?.token === 'string' && config.token.trim() !== '';
@@ -50,7 +49,6 @@ export class LasairClient {
     this.token = (config?.token ?? '').trim();
     this.endpoint = (config?.endpoint ?? DEFAULT_ENDPOINT).replace(/\/+$/, '');
     this.timeoutMs = config?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-    this.customFetch = config?.fetch;
   }
 
   /**
@@ -58,9 +56,6 @@ export class LasairClient {
    */
   private async post<T>(method: string, payload: Record<string, unknown>): Promise<T> {
     const url = `${this.endpoint}/${method}/`;
-    const fetchFn =
-      this.customFetch ??
-      ((input: RequestInfo | URL, init?: RequestInit) => globalThis.fetch(input, init));
 
     const controller = new AbortController();
     const timeoutTimer = setTimeout(() => controller.abort(), this.timeoutMs);
@@ -75,7 +70,7 @@ export class LasairClient {
         headers.Authorization = `Token ${this.token}`;
       }
 
-      response = await fetchFn(url, {
+      response = await fetch(url, {
         method: 'POST',
         headers,
         body: JSON.stringify(payload),

@@ -316,14 +316,12 @@ export function resolveConeRadiusDegrees(options: GaiaConeSearchOptions): number
 export class GaiaClient {
   private readonly endpoint: string;
   private readonly timeoutMs: number;
-  private readonly customFetch?: typeof fetch;
   private readonly retries: number;
   private readonly retryDelayMs: number;
 
   constructor(config: GaiaClientConfig = {}) {
     this.endpoint = (config.endpoint ?? DEFAULT_GAIA_TAP_ENDPOINT).replace(/\/+$/, '');
     this.timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-    this.customFetch = config.fetch;
     this.retries = Math.max(0, config.retries ?? 2);
     this.retryDelayMs = Math.max(100, config.retryDelayMs ?? 1000);
   }
@@ -452,9 +450,6 @@ export class GaiaClient {
     }
 
     const url = `${this.endpoint}/sync`;
-    const fetchFn =
-      this.customFetch ??
-      ((input: RequestInfo | URL, init?: RequestInit) => globalThis.fetch(input, init));
 
     const bodyParams = new URLSearchParams({
       REQUEST: 'doQuery',
@@ -470,7 +465,7 @@ export class GaiaClient {
 
       let response: Response;
       try {
-        response = await fetchFn(url, {
+        response = await fetch(url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',

@@ -72,7 +72,6 @@ export class NasaClient {
   readonly timeoutMs: number;
   readonly retries: number;
   readonly retryDelayMs: number;
-  private readonly customFetch?: typeof fetch;
 
   constructor(config: NasaClientConfig = {}) {
     this.ipacEndpoint = (config.ipacTapEndpoint ?? DEFAULT_IPAC_TAP_ENDPOINT).replace(/\/+$/, '');
@@ -80,17 +79,6 @@ export class NasaClient {
     this.timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.retries = config.retries ?? 2;
     this.retryDelayMs = config.retryDelayMs ?? 1_000;
-    this.customFetch = config.fetch;
-  }
-
-  private get fetchFn(): typeof fetch {
-    if (this.customFetch) return this.customFetch;
-    if (typeof globalThis !== 'undefined' && typeof globalThis.fetch === 'function') {
-      return (input: RequestInfo | URL, init?: RequestInit) => globalThis.fetch(input, init);
-    }
-    throw new NasaError(
-      'No web-standard fetch implementation found in runtime. Please provide a fetch polyfill in NasaClientConfig.'
-    );
   }
 
   /**
@@ -117,7 +105,7 @@ export class NasaClient {
       const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
 
       try {
-        const response = await this.fetchFn(syncUrl, {
+        const response = await fetch(syncUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',

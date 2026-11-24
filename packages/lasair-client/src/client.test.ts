@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LasairClient, parseLosslessJson } from './client';
 import {
   LasairAuthError,
@@ -7,6 +7,9 @@ import {
 } from './errors';
 
 describe('LasairClient Initialization', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
   it('throws LasairAuthError when token is missing or empty', () => {
     // @ts-expect-error testing missing config
     expect(() => new LasairClient()).toThrow(LasairAuthError);
@@ -67,7 +70,8 @@ describe('API Methods (Mocked Fetch)', () => {
       text: async () => JSON.stringify(mockResponse),
     });
 
-    const client = new LasairClient({ token: 'my-token', fetch: mockFetch as unknown as typeof fetch });
+    vi.stubGlobal('fetch', mockFetch);
+    const client = new LasairClient({ token: 'my-token' });
     const result = await client.query({
       selected: 'objects.diaObjectId, objects.ra, objects.decl',
       tables: 'objects',
@@ -97,7 +101,8 @@ describe('API Methods (Mocked Fetch)', () => {
       text: async () => JSON.stringify(mockResponse),
     });
 
-    const client = new LasairClient({ token: 'my-token', fetch: mockFetch as unknown as typeof fetch });
+    vi.stubGlobal('fetch', mockFetch);
+    const client = new LasairClient({ token: 'my-token' });
     const result = await client.cone({ ra: 52.8238, dec: -29.6916, radius: 10, requestType: 'nearest' });
 
     expect(result).toEqual(mockResponse);
@@ -121,7 +126,8 @@ describe('API Methods (Mocked Fetch)', () => {
       text: async () => JSON.stringify(mockObjectData),
     });
 
-    const client = new LasairClient({ token: 'my-token', fetch: mockFetch as unknown as typeof fetch });
+    vi.stubGlobal('fetch', mockFetch);
+    const client = new LasairClient({ token: 'my-token' });
     const result = await client.object('170019695992242795');
 
     expect(result.diaObjectId).toBe('170019695992242795');
@@ -136,7 +142,8 @@ describe('API Methods (Mocked Fetch)', () => {
       text: async () => '{"detail": "Invalid token."}',
     });
 
-    const client = new LasairClient({ token: 'bad-token', fetch: mockFetch as unknown as typeof fetch });
+    vi.stubGlobal('fetch', mockFetch);
+    const client = new LasairClient({ token: 'bad-token' });
     await expect(client.query({ selected: 'diaObjectId', tables: 'objects', conditions: '' })).rejects.toThrow(
       LasairAuthError
     );
@@ -149,7 +156,8 @@ describe('API Methods (Mocked Fetch)', () => {
       text: async () => '{"detail": "Throttle limit exceeded."}',
     });
 
-    const client = new LasairClient({ token: 'my-token', fetch: mockFetch as unknown as typeof fetch });
+    vi.stubGlobal('fetch', mockFetch);
+    const client = new LasairClient({ token: 'my-token' });
     await expect(client.cone({ ra: 10, dec: 20 })).rejects.toThrow(LasairRateLimitError);
   });
 
@@ -160,7 +168,8 @@ describe('API Methods (Mocked Fetch)', () => {
       text: async () => 'Internal Server Error',
     });
 
-    const client = new LasairClient({ token: 'my-token', fetch: mockFetch as unknown as typeof fetch });
+    vi.stubGlobal('fetch', mockFetch);
+    const client = new LasairClient({ token: 'my-token' });
     await expect(client.object('12345')).rejects.toThrow(LasairRequestError);
   });
 });

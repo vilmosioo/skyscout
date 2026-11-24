@@ -15,10 +15,6 @@ export interface GaiaClientConfig {
    */
   timeoutMs?: number;
   /**
-   * Optional custom `fetch` implementation for testing or custom runtimes.
-   */
-  fetch?: typeof fetch;
-  /**
    * Maximum number of retry attempts on transient HTTP 500/502/503/504, 429, or network errors (default: 2).
    */
   retries?: number;

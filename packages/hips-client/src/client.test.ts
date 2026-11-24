@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   HipsClient,
   HipsRateLimitError,
@@ -7,6 +7,9 @@ import {
 } from './index';
 
 describe('HipsClient getCutoutUrl', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
   const client = new HipsClient();
 
   it('builds valid IVOA hips2fits cutout URLs with parameters', () => {
@@ -55,7 +58,8 @@ describe('HipsClient executeRequest & Error Hierarchy', () => {
       blob: () => Promise.resolve(mockBlob),
     });
 
-    const client = new HipsClient({ fetch: mockFetch as unknown as typeof fetch });
+    vi.stubGlobal('fetch', mockFetch);
+    const client = new HipsClient();
     const result = await client.fetchCutoutBlob({
       ra: 56.75,
       dec: 24.12,
@@ -77,7 +81,8 @@ describe('HipsClient executeRequest & Error Hierarchy', () => {
       text: () => Promise.resolve('Rate limited'),
     });
 
-    const client = new HipsClient({ fetch: mockFetch as unknown as typeof fetch });
+    vi.stubGlobal('fetch', mockFetch);
+    const client = new HipsClient();
     await expect(
       client.fetchCutoutArrayBuffer({ ra: 0, dec: 0 })
     ).rejects.toThrow(HipsRateLimitError);
@@ -91,7 +96,8 @@ describe('HipsClient executeRequest & Error Hierarchy', () => {
       text: () => Promise.resolve('Server Error'),
     });
 
-    const client = new HipsClient({ fetch: mockFetch as unknown as typeof fetch });
+    vi.stubGlobal('fetch', mockFetch);
+    const client = new HipsClient();
     await expect(
       client.fetchFits({ ra: 10, dec: 20 })
     ).rejects.toThrow(HipsRequestError);
@@ -108,8 +114,8 @@ describe('HipsClient executeRequest & Error Hierarchy', () => {
       });
     });
 
+    vi.stubGlobal('fetch', mockFetch);
     const client = new HipsClient({
-      fetch: mockFetch as unknown as typeof fetch,
       timeoutMs: 10,
     });
 

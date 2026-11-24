@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_IPAC_TAP_ENDPOINT,
   DEFAULT_MAST_TAP_ENDPOINT,
@@ -15,6 +15,9 @@ import {
 } from './errors';
 
 describe('NasaClient', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
   it('initializes with default endpoints and configuration', () => {
     const client = new NasaClient();
     expect(client.ipacEndpoint).toBe(DEFAULT_IPAC_TAP_ENDPOINT);
@@ -125,7 +128,8 @@ describe('NasaClient', () => {
           }),
       });
 
-      const client = new NasaClient({ fetch: mockFetch as unknown as typeof fetch });
+      vi.stubGlobal('fetch', mockFetch);
+      const client = new NasaClient();
       const stars = await client.coneSearch2Mass({
         ra: 56.87,
         dec: 24.1,
@@ -197,7 +201,8 @@ describe('NasaClient', () => {
           }),
       });
 
-      const client = new NasaClient({ fetch: mockFetch as unknown as typeof fetch });
+      vi.stubGlobal('fetch', mockFetch);
+      const client = new NasaClient();
       const stars = await client.coneSearchTic({
         ra: 56.75,
         dec: 24.11,
@@ -232,7 +237,8 @@ describe('NasaClient', () => {
         text: async () => 'Too Many Requests',
       });
 
-      const client = new NasaClient({ fetch: mockFetch as unknown as typeof fetch, retries: 0 });
+      vi.stubGlobal('fetch', mockFetch);
+      const client = new NasaClient({ retries: 0 });
       await expect(client.queryIpac('SELECT 1')).rejects.toThrow(NasaRateLimitError);
     });
 
@@ -243,7 +249,8 @@ describe('NasaClient', () => {
         text: async () => 'Syntax error in ADQL',
       });
 
-      const client = new NasaClient({ fetch: mockFetch as unknown as typeof fetch, retries: 2 });
+      vi.stubGlobal('fetch', mockFetch);
+      const client = new NasaClient({ retries: 2 });
       await expect(client.queryIpac('INVALID SQL')).rejects.toThrow(NasaRequestError);
       expect(mockFetch).toHaveBeenCalledTimes(1); // No retries on 400
     });
@@ -262,8 +269,8 @@ describe('NasaClient', () => {
         };
       });
 
+      vi.stubGlobal('fetch', mockFetch);
       const client = new NasaClient({
-        fetch: mockFetch as unknown as typeof fetch,
         retries: 2,
         retryDelayMs: 5,
       });
@@ -279,8 +286,8 @@ describe('NasaClient', () => {
         throw error;
       });
 
+      vi.stubGlobal('fetch', mockFetch);
       const client = new NasaClient({
-        fetch: mockFetch as unknown as typeof fetch,
         retries: 0,
         timeoutMs: 10,
       });

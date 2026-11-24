@@ -118,9 +118,4 @@ export interface SkyviewClientConfig {
    * Defaults to 30,000ms (30s).
    */
   timeoutMs?: number;
-
-  /**
-   * Custom fetch implementation (defaults to global `fetch`).
-   */
-  fetch?: typeof fetch;
 }

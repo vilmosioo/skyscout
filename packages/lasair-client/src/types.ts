@@ -5,8 +5,6 @@ export interface LasairConfig {
   endpoint?: string;
   /** Request timeout in milliseconds (defaults to 60,000ms) */
   timeoutMs?: number;
-  /** Optional custom fetch implementation (useful for tests or custom proxies) */
-  fetch?: typeof fetch;
 }
 
 /** Parameters for querying the Lasair database */

@@ -23,14 +23,10 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 export class HipsClient {
   private readonly endpoint: string;
   private readonly defaultTimeoutMs: number;
-  private readonly fetchFn: typeof fetch;
 
   constructor(config: HipsClientConfig = {}) {
     this.endpoint = config.endpoint ?? DEFAULT_HIPS2FITS_ENDPOINT;
     this.defaultTimeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-    this.fetchFn =
-      config.fetch ??
-      ((input: RequestInfo | URL, init?: RequestInit) => globalThis.fetch(input, init));
   }
 
   /**
@@ -107,7 +103,7 @@ export class HipsClient {
     const timer = setTimeout(() => controller.abort(), timeout);
 
     try {
-      const response = await this.fetchFn(url, {
+      const response = await fetch(url, {
         signal: controller.signal,
       });
 

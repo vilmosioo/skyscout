@@ -109,9 +109,4 @@ export interface HipsClientConfig {
    * Default timeout in milliseconds (defaults to 30,000ms).
    */
   timeoutMs?: number;
-
-  /**
-   * Custom fetch function.
-   */
-  fetch?: typeof fetch;
 }

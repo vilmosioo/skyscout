@@ -32,11 +32,6 @@ export interface NasaClientConfig {
    * Defaults to 1,000 ms.
    */
   retryDelayMs?: number;
-
-  /**
-   * Optional custom `fetch` implementation for testing or polyfilling.
-   */
-  fetch?: typeof fetch;
 }
 
 /**

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_GAIA_TAP_ENDPOINT,
   extractTapErrorMessage,
@@ -58,17 +58,19 @@ const sampleTapPayload = JSON.stringify({
 });
 
 describe('GaiaClient Initialization', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('initializes with zero arguments (no API key required for public ESA Gaia TAP)', () => {
     const client = new GaiaClient();
     expect(client).toBeInstanceOf(GaiaClient);
   });
 
-  it('accepts custom endpoint, timeoutMs, and fetch implementation', () => {
-    const mockFetch = vi.fn();
+  it('accepts custom endpoint and timeoutMs', () => {
     const client = new GaiaClient({
       endpoint: '/api/gaia/',
       timeoutMs: 15_000,
-      fetch: mockFetch as unknown as typeof fetch,
     });
     expect(client).toBeInstanceOf(GaiaClient);
   });
@@ -111,7 +113,8 @@ describe('High-Level API Methods (Abstracting ADQL & TAP)', () => {
       text: async () => sampleTapPayload,
     });
 
-    const client = new GaiaClient({ fetch: mockFetch as unknown as typeof fetch });
+    vi.stubGlobal('fetch', mockFetch);
+    const client = new GaiaClient();
     const stars = await client.coneSearch({
       ra: 56.75,
       dec: 24.12,
@@ -153,7 +156,8 @@ describe('High-Level API Methods (Abstracting ADQL & TAP)', () => {
       text: async () => sampleTapPayload,
     });
 
-    const client = new GaiaClient({ fetch: mockFetch as unknown as typeof fetch });
+    vi.stubGlobal('fetch', mockFetch);
+    const client = new GaiaClient();
     await client.searchByDistance({
       maxDistancePc: 20, // parallax >= 50 mas
       minParallaxSnr: 20,
@@ -173,7 +177,8 @@ describe('High-Level API Methods (Abstracting ADQL & TAP)', () => {
       text: async () => sampleTapPayload,
     });
 
-    const client = new GaiaClient({ fetch: mockFetch as unknown as typeof fetch });
+    vi.stubGlobal('fetch', mockFetch);
+    const client = new GaiaClient();
     const star = await client.getStarById('64995134679307264');
 
     expect(star).not.toBeNull();
@@ -214,7 +219,8 @@ describe('Error Hierarchy', () => {
       text: async () => 'Too Many Requests',
     });
 
-    const client = new GaiaClient({ fetch: mockFetch as unknown as typeof fetch });
+    vi.stubGlobal('fetch', mockFetch);
+    const client = new GaiaClient();
     await expect(client.searchStars({ limit: 5 })).rejects.toThrow(GaiaRateLimitError);
   });
 
@@ -225,7 +231,8 @@ describe('Error Hierarchy', () => {
       text: async () => 'Invalid ADQL syntax near FROM',
     });
 
-    const client = new GaiaClient({ fetch: mockFetch as unknown as typeof fetch });
+    vi.stubGlobal('fetch', mockFetch);
+    const client = new GaiaClient();
     try {
       await client.queryAdql('SELECT BROKEN FROM');
       expect.fail('Expected GaiaRequestError');
@@ -247,9 +254,9 @@ describe('Error Hierarchy', () => {
       });
     });
 
+    vi.stubGlobal('fetch', mockFetch);
     const client = new GaiaClient({
       timeoutMs: 20,
-      fetch: mockFetch as unknown as typeof fetch,
     });
 
     await expect(client.searchStars({ limit: 10 })).rejects.toThrow(GaiaTimeoutError);
@@ -295,8 +302,8 @@ body { background-color: white; color: black; }
         text: async () => sampleTapPayload,
       });
 
+    vi.stubGlobal('fetch', mockFetch);
     const client = new GaiaClient({
-      fetch: mockFetch as unknown as typeof fetch,
       retries: 2,
       retryDelayMs: 10,
     });

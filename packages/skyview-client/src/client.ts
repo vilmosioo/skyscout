@@ -37,14 +37,10 @@ export function formatSkyviewPosition(pos: SkyviewPosition): string {
 export class SkyviewClient {
   private readonly baseUrl: string;
   private readonly defaultTimeoutMs: number;
-  private readonly fetchFn: typeof fetch;
 
   constructor(config: SkyviewClientConfig = {}) {
     this.baseUrl = (config.baseUrl ?? DEFAULT_SKYVIEW_BASE_URL).replace(/\/+$/, '');
     this.defaultTimeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-    this.fetchFn =
-      config.fetch ??
-      ((input: RequestInfo | URL, init?: RequestInit) => globalThis.fetch(input, init));
   }
 
   /**
@@ -147,7 +143,7 @@ export class SkyviewClient {
     const timer = setTimeout(() => controller.abort(), timeout);
 
     try {
-      const response = await this.fetchFn(url, {
+      const response = await fetch(url, {
         signal: controller.signal,
       });
 
