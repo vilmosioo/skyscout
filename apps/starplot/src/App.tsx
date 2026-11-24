@@ -7,6 +7,7 @@ import {
   downloadGalleryPoster,
   fetchNasaClusterStars,
   formatPosterTitle,
+  generateClusterFallbackStars,
   generateClusterPreviewPoints,
   getCachedNasaStars,
   HR_BOUNDS,
@@ -43,7 +44,7 @@ function ClusterCard({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const cardRef = useRef<HTMLAnchorElement | null>(null);
   const [stars, setStars] = useState<GaiaStar[]>(() => {
-    return getCachedNasaStars(preset.id, 1000) ?? [];
+    return getCachedNasaStars(preset.id, 1000) ?? generateClusterFallbackStars(preset);
   });
   const [loading, setLoading] = useState<boolean>(() => {
     const cached = getCachedNasaStars(preset.id, 1000);
@@ -69,6 +70,11 @@ function ClusterCard({
                 setStars(liveStars);
               }
             })
+            .catch(() => {
+              if (!cancelled && stars.length === 0) {
+                setStars(generateClusterFallbackStars(preset));
+              }
+            })
             .finally(() => {
               if (!cancelled) setLoading(false);
             });
@@ -86,6 +92,11 @@ function ClusterCard({
             setStars(liveStars);
           }
         })
+        .catch(() => {
+          if (!cancelled && stars.length === 0) {
+            setStars(generateClusterFallbackStars(preset));
+          }
+        })
         .finally(() => {
           if (!cancelled) setLoading(false);
         });
@@ -98,7 +109,6 @@ function ClusterCard({
   }, [preset.id, nasaClient]);
 
   useEffect(() => {
-    if (stars.length === 0) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -112,7 +122,8 @@ function ClusterCard({
     ctx.save();
     ctx.scale(scale, scale);
 
-    const tagged = stars.map((star) => ({
+    const starList = stars.length > 0 ? stars : generateClusterFallbackStars(preset);
+    const tagged = starList.map((star) => ({
       star,
       sourceLabel: preset.shortName,
     }));
@@ -272,7 +283,7 @@ function ClusterPosterView() {
     []
   );
   const [stars, setStars] = useState<GaiaStar[]>(() => {
-    return getCachedNasaStars(preset.id, 1000) ?? [];
+    return getCachedNasaStars(preset.id, 1000) ?? generateClusterFallbackStars(preset);
   });
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -312,38 +323,45 @@ function ClusterPosterView() {
     setPan({ x: 0, y: 0 });
   };
 
-  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-    e.preventDefault();
+  useEffect(() => {
     const frame = frameRef.current;
     if (!frame) return;
 
-    const rect = frame.getBoundingClientRect();
-    const cursorX = e.clientX - rect.left - rect.width / 2;
-    const cursorY = e.clientY - rect.top - rect.height / 2;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = frame.getBoundingClientRect();
+      const cursorX = e.clientX - rect.left - rect.width / 2;
+      const cursorY = e.clientY - rect.top - rect.height / 2;
 
-    const factor = e.deltaY < 0 ? 1.2 : 0.833;
-    setZoom((prevZoom) => {
-      const nextZoom = Math.max(1, Math.min(6, Number((prevZoom * factor).toFixed(2))));
-      if (nextZoom <= 1.02) {
-        setPan({ x: 0, y: 0 });
-        return 1;
-      }
+      const factor = e.deltaY < 0 ? 1.2 : 0.833;
+      setZoom((prevZoom) => {
+        const nextZoom = Math.max(1, Math.min(6, Number((prevZoom * factor).toFixed(2))));
+        if (nextZoom <= 1.02) {
+          setPan({ x: 0, y: 0 });
+          return 1;
+        }
 
-      const scaleChange = nextZoom / prevZoom;
-      setPan((prevPan) => {
-        const nextPanX = cursorX - scaleChange * (cursorX - prevPan.x);
-        const nextPanY = cursorY - scaleChange * (cursorY - prevPan.y);
-        const maxPanX = (rect.width * (nextZoom - 1)) / 2;
-        const maxPanY = (rect.height * (nextZoom - 1)) / 2;
-        return {
-          x: Math.max(-maxPanX, Math.min(maxPanX, nextPanX)),
-          y: Math.max(-maxPanY, Math.min(maxPanY, nextPanY)),
-        };
+        const scaleChange = nextZoom / prevZoom;
+        setPan((prevPan) => {
+          const nextPanX = cursorX - scaleChange * (cursorX - prevPan.x);
+          const nextPanY = cursorY - scaleChange * (cursorY - prevPan.y);
+          const maxPanX = (rect.width * (nextZoom - 1)) / 2;
+          const maxPanY = (rect.height * (nextZoom - 1)) / 2;
+          return {
+            x: Math.max(-maxPanX, Math.min(maxPanX, nextPanX)),
+            y: Math.max(-maxPanY, Math.min(maxPanY, nextPanY)),
+          };
+        });
+
+        return nextZoom;
       });
+    };
 
-      return nextZoom;
-    });
-  };
+    frame.addEventListener('wheel', onWheel, { passive: false });
+    return () => {
+      frame.removeEventListener('wheel', onWheel);
+    };
+  }, []);
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
@@ -452,12 +470,15 @@ function ClusterPosterView() {
       })
       .catch((err) => {
         console.warn('NASA TAP fetch notice:', err);
+        if (!cancelled && stars.length === 0) {
+          setStars(generateClusterFallbackStars(preset));
+        }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [nasaClient, preset]);
+  }, [nasaClient, preset, stars.length]);
 
   // Render high-resolution preview to canvas (1800 × 2400 px, scaled down via CSS)
   useEffect(() => {
@@ -473,12 +494,8 @@ function ClusterPosterView() {
     ctx.save();
     ctx.scale(scale, scale);
 
-    if (stars.length === 0) {
-      ctx.restore();
-      return;
-    }
-
-    const tagged = stars.map((star) => ({
+    const starList = stars.length > 0 ? stars : generateClusterFallbackStars(preset);
+    const tagged = starList.map((star) => ({
       star,
       sourceLabel: preset.shortName,
     }));
@@ -513,8 +530,9 @@ function ClusterPosterView() {
     master.width = 5400;
     master.height = 7200;
     const masterCtx = master.getContext('2d');
-    if (masterCtx && stars.length > 0) {
-      const tagged = stars.map((star) => ({
+    if (masterCtx) {
+      const starList = stars.length > 0 ? stars : generateClusterFallbackStars(preset);
+      const tagged = starList.map((star) => ({
         star,
         sourceLabel: preset.shortName,
       }));
@@ -657,7 +675,6 @@ function ClusterPosterView() {
         <div
           ref={frameRef}
           className={`canvas-frame ${themeInfo.isLight ? 'light-frame' : 'dark-frame'} ${zoom > 1 ? 'is-zoomed' : ''} ${isDragging ? 'is-dragging' : ''}`}
-          onWheel={handleWheel}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}

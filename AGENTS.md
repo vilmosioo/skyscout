@@ -17,6 +17,7 @@ Guidelines and constraints for AI coding assistants working in the SkyScout repo
 - **CI / Build Execution**: Do **NOT** run `npm run build`, `npm test`, `turbo run test`, `turbo run build`, or typecheck commands locally during development turns. GitHub CI automatically handles verification on push/PR. Skipping local builds/tests keeps agent turns fast and responsive.
 
 ## 3. Client Package Standards (`packages/*`)
+- **Always Use Global `fetch`**: Always invoke global `fetch(...)` directly in the global scope across all packages and apps. Never create `this.fetch` properties, instance getters, constructor parameters, or custom dependency injection wrappers for `fetch`. Storing, retrieving, or passing unbound `fetch` references causes `TypeError: Failed to execute 'fetch' on 'Window': Illegal invocation` in browser runtimes.
 - **Environment Agnostic**: Never sniff `process.env` or `import.meta.env` inside client packages. Tokens and endpoints must be passed explicitly via configuration objects.
 - **Zero Heavy Dependencies**: Rely on web-standard `fetch`, `AbortController`, and pure TypeScript types wherever possible.
 - **Error Hierarchy**: Provide descriptive error classes (e.g. `AuthError`, `RateLimitError`, `TimeoutError`, `RequestError`).

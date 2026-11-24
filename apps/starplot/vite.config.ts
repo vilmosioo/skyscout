@@ -8,28 +8,34 @@ export default defineConfig({
     open: true,
     proxy: {
       '/api/gaia': {
-        target: 'https://gea.esac.esa.int/tap-server/tap',
+        target: 'https://gea.esac.esa.int',
         changeOrigin: true,
         secure: true,
-        rewrite: (path) => path.replace(/^\/api\/gaia/, ''),
+        rewrite: (path) => path.replace(/^\/api\/gaia/, '/tap-server/tap'),
       },
       '/gaia-tap': {
-        target: 'https://gea.esac.esa.int/tap-server/tap',
+        target: 'https://gea.esac.esa.int',
         changeOrigin: true,
         secure: true,
-        rewrite: (path) => path.replace(/^\/gaia-tap/, ''),
+        rewrite: (path) => path.replace(/^\/gaia-tap/, '/tap-server/tap'),
       },
       '/api/nasa/mast': {
-        target: 'https://mast.stsci.edu/api/v0/tap',
+        target: 'https://mast.stsci.edu',
         changeOrigin: true,
         secure: true,
-        rewrite: (path) => path.replace(/^\/api\/nasa\/mast/, ''),
+        rewrite: (path) => path.replace(/^\/api\/nasa\/mast/, '/api/v0/tap'),
+      },
+      '/api/nasa/ipac': {
+        target: 'https://irsa.ipac.caltech.edu',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/api\/nasa\/ipac/, '/TAP'),
       },
       '/api/nasa': {
-        target: 'https://irsa.ipac.caltech.edu/TAP',
+        target: 'https://irsa.ipac.caltech.edu',
         changeOrigin: true,
         secure: true,
-        rewrite: (path) => path.replace(/^\/api\/nasa(\/ipac)?/, ''),
+        rewrite: (path) => path.replace(/^\/api\/nasa/, '/TAP'),
       },
       '/api/skyview': {
         target: 'https://skyview.gsfc.nasa.gov',
