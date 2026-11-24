@@ -141,10 +141,14 @@ describe('StarPlot H–R Diagram Coordinate, Zoom/Pan & Color Schemes', () => {
 });
 
 describe('Expanded Messier & Famous Clusters Catalog + Multi-Select', () => {
-  it('provides 33 curated presets across Solar Neighborhood, Open Clusters, and Globular Clusters', () => {
-    expect(TARGET_PRESETS.length).toBe(33);
+  it('provides 45 curated presets across Solar Neighborhood, Open Clusters, Globular Clusters, and Zodiac Constellations', () => {
+    expect(TARGET_PRESETS.length).toBe(45);
     const solarVolumes = TARGET_PRESETS.filter((p) => p.category === 'Solar Volume');
     expect(solarVolumes.map((p) => p.id)).toEqual(['solar-50pc']);
+    const zodiacs = TARGET_PRESETS.filter((p) => p.category === 'Zodiac Constellation');
+    expect(zodiacs).toHaveLength(12);
+    expect(TARGET_PRESETS.some((p) => p.id === 'aries')).toBe(true);
+    expect(TARGET_PRESETS.some((p) => p.id === 'scorpius')).toBe(true);
     expect(TARGET_PRESETS.some((p) => p.id === 'm13')).toBe(true);
     expect(TARGET_PRESETS.some((p) => p.id === 'omega-centauri')).toBe(true);
     expect(TARGET_PRESETS.some((p) => p.id === 'double-cluster')).toBe(true);
@@ -155,11 +159,17 @@ describe('Expanded Messier & Famous Clusters Catalog + Multi-Select', () => {
     const scorp = searchCatalogPresets('Scorpius', 'All');
     expect(scorp.length).toBeGreaterThanOrEqual(4);
 
+    const zodiacs = searchCatalogPresets('', 'Zodiac Constellation');
+    expect(zodiacs).toHaveLength(12);
+
     const globularM13 = searchCatalogPresets('M13', 'Globular Cluster');
     expect(globularM13.map((p) => p.id)).toEqual(['m13']);
 
     const previewPts = generateClusterPreviewPoints(globularM13[0]);
     expect(previewPts.length).toBeGreaterThan(150);
+
+    const ariesPts = generateClusterPreviewPoints(zodiacs[0]);
+    expect(ariesPts.length).toBeGreaterThan(150);
   });
 
   it('generates rich, physics-accurate offline fallback stars for clusters', () => {
@@ -254,7 +264,7 @@ describe('fetchTargetStars Live Dispatch & Local Caching', () => {
       }),
     };
 
-    const client = new GaiaClient({ fetch: vi.fn() as unknown as typeof fetch });
+    const client = new GaiaClient();
     const spy = vi.spyOn(client, 'searchStars').mockResolvedValue([sampleStar]);
 
     const first = await fetchTargetStars(client, 'solar-50pc', 600, mockStorage);
@@ -271,7 +281,7 @@ describe('fetchTargetStars Live Dispatch & Local Caching', () => {
   });
 
   it('deduplicates concurrent in-flight requests for the same target (e.g. React StrictMode double-mount)', async () => {
-    const client = new GaiaClient({ fetch: vi.fn() as unknown as typeof fetch });
+    const client = new GaiaClient();
     let resolveNetwork!: (value: GaiaStar[]) => void;
     const spy = vi.spyOn(client, 'searchStars').mockImplementation(
       () =>
@@ -292,7 +302,7 @@ describe('fetchTargetStars Live Dispatch & Local Caching', () => {
   });
 
   it('dispatches open and globular cluster presets to client.coneSearch', async () => {
-    const client = new GaiaClient({ fetch: vi.fn() as unknown as typeof fetch });
+    const client = new GaiaClient();
     const spy = vi.spyOn(client, 'coneSearch').mockResolvedValue([]);
 
     await fetchTargetStars(client, 'pleiades', 500);
@@ -657,6 +667,14 @@ describe('fetchTargetStars Live Dispatch & Local Caching', () => {
       expect(copy.description).toContain('300 DPI');
       expect(copy.description).toContain('WHAT YOU RECEIVE');
       expect(copy.suggestedPriceDigital).toBe('$8.90');
+
+      // Zodiac constellation copy
+      const aries = TARGET_PRESETS.find((p) => p.id === 'aries')!;
+      const ariesCopy = getEtsyListingCopy(aries, 'night-fall');
+      expect(ariesCopy.title).toContain('Aries Zodiac Star Constellation Poster');
+      expect(ariesCopy.tags).toContain('aries zodiac');
+      expect(ariesCopy.tags).toContain('zodiac wall art');
+      expect(ariesCopy.description).toContain('CASCADE ASTRONOMICAL POSTER');
     });
 
     it('renders framed gallery room mockup and macro detail crop for Etsy listing photos', () => {

@@ -42,9 +42,26 @@ export type TargetPresetId =
   | 'm10'
   | 'm12'
   | 'm15'
-  | 'm92';
+  | 'm92'
+  // 12 Zodiac Constellations
+  | 'aries'
+  | 'taurus'
+  | 'gemini'
+  | 'cancer'
+  | 'leo'
+  | 'virgo'
+  | 'libra'
+  | 'scorpius'
+  | 'sagittarius'
+  | 'capricornus'
+  | 'aquarius'
+  | 'pisces';
 
-export type TargetCategory = 'Solar Volume' | 'Open Cluster' | 'Globular Cluster';
+export type TargetCategory =
+  | 'Solar Volume'
+  | 'Open Cluster'
+  | 'Globular Cluster'
+  | 'Zodiac Constellation';
 
 export interface TargetPreset {
   id: TargetPresetId;
@@ -718,6 +735,211 @@ export const TARGET_PRESETS: TargetPreset[] = [
       maxDistancePc: 16500,
       minParallaxSnr: 2,
       maxMagG: 17.5,
+    },
+  },
+  // 12 Zodiac Constellations
+  {
+    id: 'aries',
+    label: 'Aries (♈ The Ram)',
+    shortName: 'Aries',
+    catalogCode: '♈ ARIES',
+    constellation: 'Aries',
+    category: 'Zodiac Constellation',
+    subtitle: 'Ancient zodiac constellation of the Golden Ram anchored by orange giant Hamal',
+    age: '0.5 – 8 Gyr',
+    distancePcApprox: 66,
+    cone: {
+      ra: 40.0,
+      dec: 20.0,
+      radiusDeg: 3.5,
+      maxMagG: 16.5,
+    },
+  },
+  {
+    id: 'taurus',
+    label: 'Taurus (♉ The Bull)',
+    shortName: 'Taurus',
+    catalogCode: '♉ TAURUS',
+    constellation: 'Taurus',
+    category: 'Zodiac Constellation',
+    subtitle: 'Prominent northern zodiac constellation anchored by brilliant red giant Aldebaran',
+    age: '0.1 – 6 Gyr',
+    distancePcApprox: 65,
+    cone: {
+      ra: 68.0,
+      dec: 18.0,
+      radiusDeg: 4.5,
+      maxMagG: 16.5,
+    },
+  },
+  {
+    id: 'gemini',
+    label: 'Gemini (♊ The Twins)',
+    shortName: 'Gemini',
+    catalogCode: '♊ GEMINI',
+    constellation: 'Gemini',
+    category: 'Zodiac Constellation',
+    subtitle: 'Twin stars Castor and Pollux spanning golden orange and icy white stellar evolution',
+    age: '0.2 – 5 Gyr',
+    distancePcApprox: 52,
+    cone: {
+      ra: 110.0,
+      dec: 22.5,
+      radiusDeg: 4.0,
+      maxMagG: 16.5,
+    },
+  },
+  {
+    id: 'cancer',
+    label: 'Cancer (♋ The Crab)',
+    shortName: 'Cancer',
+    catalogCode: '♋ CANCER',
+    constellation: 'Cancer',
+    category: 'Zodiac Constellation',
+    subtitle: 'Ancient zodiac constellation cradling the sparkling Beehive Cluster and orange giant Altarf',
+    age: '0.6 – 7 Gyr',
+    distancePcApprox: 90,
+    cone: {
+      ra: 130.0,
+      dec: 20.0,
+      radiusDeg: 3.5,
+      maxMagG: 16.5,
+    },
+  },
+  {
+    id: 'leo',
+    label: 'Leo (♌ The Lion)',
+    shortName: 'Leo',
+    catalogCode: '♌ LEO',
+    constellation: 'Leo',
+    category: 'Zodiac Constellation',
+    subtitle: 'Majestic northern zodiac constellation featuring the Sickle and regal blue subgiant Regulus',
+    age: '0.3 – 8 Gyr',
+    distancePcApprox: 75,
+    cone: {
+      ra: 155.0,
+      dec: 15.0,
+      radiusDeg: 4.5,
+      maxMagG: 16.5,
+    },
+  },
+  {
+    id: 'virgo',
+    label: 'Virgo (♍ The Maiden)',
+    shortName: 'Virgo',
+    catalogCode: '♍ VIRGO',
+    constellation: 'Virgo',
+    category: 'Zodiac Constellation',
+    subtitle: 'Largest zodiac constellation anchored by intense blue-white binary giant Spica',
+    age: '0.2 – 9 Gyr',
+    distancePcApprox: 80,
+    cone: {
+      ra: 200.0,
+      dec: -5.0,
+      radiusDeg: 4.5,
+      maxMagG: 16.5,
+    },
+  },
+  {
+    id: 'libra',
+    label: 'Libra (♎ The Scales)',
+    shortName: 'Libra',
+    catalogCode: '♎ LIBRA',
+    constellation: 'Libra',
+    category: 'Zodiac Constellation',
+    subtitle: 'The celestial balance scales marked by rare emerald-blue dwarf Zubeneschamali',
+    age: '0.4 – 7 Gyr',
+    distancePcApprox: 60,
+    cone: {
+      ra: 230.0,
+      dec: -15.0,
+      radiusDeg: 3.8,
+      maxMagG: 16.5,
+    },
+  },
+  {
+    id: 'scorpius',
+    label: 'Scorpius (♏ The Scorpion)',
+    shortName: 'Scorpius',
+    catalogCode: '♏ SCORPIUS',
+    constellation: 'Scorpius',
+    category: 'Zodiac Constellation',
+    subtitle: 'Dramatic celestial scorpion centered on colossal red supergiant Antares and the Sting',
+    age: '15 Myr – 5 Gyr',
+    distancePcApprox: 170,
+    cone: {
+      ra: 250.0,
+      dec: -30.0,
+      radiusDeg: 4.5,
+      maxMagG: 16.5,
+    },
+  },
+  {
+    id: 'sagittarius',
+    label: 'Sagittarius (♐ The Archer)',
+    shortName: 'Sagittarius',
+    catalogCode: '♐ SAGITTARIUS',
+    constellation: 'Sagittarius',
+    category: 'Zodiac Constellation',
+    subtitle: 'Galactic core teapot asterism pointing into the luminous stellar heart of the Milky Way',
+    age: '0.1 – 10 Gyr',
+    distancePcApprox: 120,
+    cone: {
+      ra: 280.0,
+      dec: -25.0,
+      radiusDeg: 4.5,
+      maxMagG: 16.5,
+    },
+  },
+  {
+    id: 'capricornus',
+    label: 'Capricornus (♑ The Sea Goat)',
+    shortName: 'Capricornus',
+    catalogCode: '♑ CAPRICORNUS',
+    constellation: 'Capricornus',
+    category: 'Zodiac Constellation',
+    subtitle: 'Ancient southern zodiac constellation anchored by Deneb Algedi and multiple star Dabih',
+    age: '0.8 – 8 Gyr',
+    distancePcApprox: 70,
+    cone: {
+      ra: 315.0,
+      dec: -18.0,
+      radiusDeg: 4.0,
+      maxMagG: 16.5,
+    },
+  },
+  {
+    id: 'aquarius',
+    label: 'Aquarius (♒ The Water Bearer)',
+    shortName: 'Aquarius',
+    catalogCode: '♒ AQUARIUS',
+    constellation: 'Aquarius',
+    category: 'Zodiac Constellation',
+    subtitle: 'Celestial water bearer distinguished by rare luminous yellow supergiants Sadalsuud and Sadalmelik',
+    age: '0.1 – 9 Gyr',
+    distancePcApprox: 160,
+    cone: {
+      ra: 335.0,
+      dec: -8.0,
+      radiusDeg: 4.2,
+      maxMagG: 16.5,
+    },
+  },
+  {
+    id: 'pisces',
+    label: 'Pisces (♓ The Fishes)',
+    shortName: 'Pisces',
+    catalogCode: '♓ PISCES',
+    constellation: 'Pisces',
+    category: 'Zodiac Constellation',
+    subtitle: 'Twin celestial fishes linked by cord star Alrescha at the vernal equinox',
+    age: '0.5 – 8 Gyr',
+    distancePcApprox: 85,
+    cone: {
+      ra: 15.0,
+      dec: 12.0,
+      radiusDeg: 4.5,
+      maxMagG: 16.5,
     },
   },
 ];
@@ -1611,6 +1833,33 @@ export function generateClusterPreviewPoints(
     return points;
   }
 
+  if (preset.category === 'Zodiac Constellation') {
+    // Rich mixed galactic disk stellar population across the constellation field
+    // 1. Broad Main Sequence spine from hot blue dwarf down to cool red dwarf
+    for (let i = 0; i < 170; i++) {
+      const t = Math.pow(rand(), 0.85);
+      const bpRp = -0.25 + t * 3.1 + (rand() - 0.5) * 0.12;
+      const absMag = -1.5 + t * 13.5 + (rand() - 0.5) * 0.45;
+      points.push({ bpRp, absoluteMagG: absMag });
+    }
+    // 2. Red Giant Branch & Red Clump giants
+    for (let i = 0; i < 35; i++) {
+      const t = Math.pow(rand(), 0.9);
+      const bpRp = 0.95 + t * 1.1 + (rand() - 0.5) * 0.1;
+      const absMag = 1.2 - t * 4.2 + (rand() - 0.5) * 0.4;
+      points.push({ bpRp, absoluteMagG: absMag });
+    }
+    // 3. Bright iconic anchor stars / supergiants (e.g. Antares, Aldebaran, Regulus, Spica, Pollux)
+    for (let i = 0; i < 8; i++) {
+      const isRedSupergiant = rand() > 0.5;
+      points.push({
+        bpRp: isRedSupergiant ? 1.75 + (rand() - 0.5) * 0.3 : -0.15 + (rand() - 0.5) * 0.2,
+        absoluteMagG: isRedSupergiant ? -4.5 + (rand() - 0.5) * 1.5 : -3.8 + (rand() - 0.5) * 1.2,
+      });
+    }
+    return points;
+  }
+
   // Open Cluster: calculate turnoff and evolved stars based on numeric age in Myr
   const ageMyr = parseClusterAgeMyr(preset.age);
 
@@ -1824,6 +2073,16 @@ export function generateClusterFallbackStars(preset: TargetPreset): GaiaStar[] {
       const r = (0.2 + 0.8 * Math.sqrt(rand())) * radiusDeg;
       ra = baseRa + (r * Math.cos(angle)) / cosDec;
       dec = baseDec + r * Math.sin(angle);
+    } else if (preset.category === 'Zodiac Constellation') {
+      // Natural constellation field distribution with anchor stars
+      const angle = rand() * 2 * Math.PI;
+      const r = Math.pow(rand(), 0.9) * radiusDeg;
+      ra = baseRa + (r * Math.cos(angle)) / cosDec;
+      dec = baseDec + r * Math.sin(angle);
+      // Brighten the first few stars to represent the prominent anchor stars of the zodiac constellation
+      if (idx < 3) {
+        photG -= (3.5 - idx * 0.8);
+      }
     } else {
       // Gaussian open cluster core dispersal
       const angle = rand() * 2 * Math.PI;
@@ -3983,41 +4242,66 @@ export function getEtsyListingCopy(
   const formattedTitle = formatPosterTitle(preset);
   const constellation = preset.constellation ?? 'Milky Way';
   const isSolar = preset.id === 'solar-50pc';
+  const isZodiac = preset.category === 'Zodiac Constellation';
 
   const title = isSolar
     ? 'Solar Neighborhood Star Map Poster, Astronomy Wall Art, 50 Parsec 3D Sphere Centered on the Sun & H-R Diagram, Minimalist Space Art Print'
+    : isZodiac
+    ? `${preset.shortName} Zodiac Star Constellation Poster, Astronomy Wall Art, Astrophotography H-R Diagram Print, Space Decor`
     : `${formattedTitle} Star Cluster Poster, Astronomy Wall Art, ${constellation} Star Map & Hertzsprung Russell Diagram, Minimalist Space Art Print`;
 
-  const tags = [
-    'astronomy wall art',
-    'star cluster poster',
-    `${preset.shortName.toLowerCase()} poster`,
-    'space poster vintage',
-    'minimalist star map',
-    'hertzsprung diagram',
-    'celestial wall decor',
-    'astrophysics print',
-    'stargazing gift',
-    'astronomy teacher',
-    'space nursery art',
-    'scientific poster',
-    'dark academia space',
-  ].slice(0, 13);
+  const tags = isZodiac
+    ? [
+        `${preset.shortName.toLowerCase()} poster`,
+        `${preset.shortName.toLowerCase()} zodiac`,
+        'zodiac wall art',
+        'constellation poster',
+        'astronomy wall art',
+        'zodiac birthday gift',
+        'hertzsprung diagram',
+        'star map poster',
+        'astrophysics print',
+        'astrology wall decor',
+        'stargazing gift',
+        'scientific poster',
+        'celestial star chart',
+      ].slice(0, 13)
+    : [
+        'astronomy wall art',
+        'star cluster poster',
+        `${preset.shortName.toLowerCase()} poster`,
+        'space poster vintage',
+        'minimalist star map',
+        'hertzsprung diagram',
+        'celestial wall decor',
+        'astrophysics print',
+        'stargazing gift',
+        'astronomy teacher',
+        'space nursery art',
+        'scientific poster',
+        'dark academia space',
+      ].slice(0, 13);
 
   const isNightFall = themeId === 'night-fall';
   const themeHeader = isNightFall ? 'CASCADE ASTRONOMICAL POSTER' : 'DUAL-MAP ASTRONOMICAL POSTER';
+
+  const targetDesc = isSolar
+    ? 'our local solar neighborhood out to 50 pc (163 ly)'
+    : isZodiac
+    ? `the ${preset.shortName} zodiac constellation (${preset.subtitle})`
+    : `${formattedTitle} (${preset.category.toLowerCase()} in ${constellation})`;
 
   const description = `✨ ${formattedTitle.toUpperCase()} (${preset.catalogCode ?? preset.shortName}) — ${themeHeader}
 
 Where celestial position meets stellar astrophysics.
 
-This astronomical poster presents two interconnected scientific perspectives of ${isSolar ? 'our local solar neighborhood out to 50 pc (163 ly)' : `${formattedTitle} (${preset.category.toLowerCase()} in ${constellation})`}:
+This astronomical poster presents two interconnected scientific perspectives of ${targetDesc}:
 ${
   isNightFall
-    ? `• Top: True celestial sky coordinates showing cluster stars positioned as they appear in the night sky.
+    ? `• Top: True celestial sky coordinates showing ${isZodiac ? 'the constellation asterism and stars positioned as they appear' : 'cluster stars positioned as they appear'} in the night sky.
 • Bottom: Hertzsprung–Russell diagram sorting cluster stars by surface temperature (hot blue at left) and luminosity (brilliant at top).
 • Luminous strands cascade continuously from each star's celestial sky coordinates directly into its physical astrophysical state.`
-    : `• Top: True celestial sky coordinates showing where the stars sit in the night sky.
+    : `• Top: True celestial sky coordinates showing ${isZodiac ? 'the constellation asterism and anchor stars' : 'where the stars sit'} in the night sky.
 • Bottom: Hertzsprung–Russell diagram sorting cluster stars by true surface temperature (hot blue at left) and luminosity (brilliant at top).
 • Delicate luminous threads join the brightest iconic stars directly between their sky location and their physical astrophysical state.`
 }

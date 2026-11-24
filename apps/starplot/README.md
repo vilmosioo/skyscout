@@ -7,7 +7,12 @@ Live deployment: [starplot.vilmosioo.dev](https://starplot.vilmosioo.dev)
 ## Features
 
 - **`wouter` Multi-Route Architecture**:
-  - **`/` (Home Cluster Catalog Grid)**: Browse and filter **33 curated Messier, NGC & Caldwell star clusters** (`Solar Neighborhood (< 50 pc)`, 20 Open Clusters spanning `~12 Myr` to `~6.8 Gyr`, and 12 ancient Globular Clusters) with instant mini H–R diagram thumbnail canvases and a **Custom Sky Cone Search** form.
+  - **`/` (Home Catalog Grid)**: Browse and filter **45 curated targets** across 4 categories:
+    - **♈ 12 Zodiac Constellations**: Complete zodiac collection (Aries through Pisces) with anchor stars and asterism coordinates.
+    - **✨ 21 Open Clusters**: Young star-forming regions to intermediate clusters (`~12 Myr` to `~6.8 Gyr`).
+    - **🔮 11 Globular Clusters**: Ancient halo clusters (`~11` to `~13 Gyr`).
+    - **☉ Solar Volume**: The 50 pc local stellar neighborhood centered on the Sun.
+    - Mini H–R diagram thumbnail canvases, category filters, and live theme switcher.
   - **`/cluster/:id` & `/chart/:id` (Interactive Chart & Poster View)**: Deep-dive into any cluster (or `/chart/custom?...` coordinate cone) and layer multiple clusters together for stellar evolution comparison.
 - **Astrophysical Overlays**:
   - **📏 Constant Stellar Radius Lines (`R☉`)**: Plot Stefan–Boltzmann constant-radius curves from `0.01 R☉` (White Dwarfs) up to `1000 R☉` (Red Supergiants).

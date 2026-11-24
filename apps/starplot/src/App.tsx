@@ -15,7 +15,9 @@ import {
   renderDetailCropMockup,
   renderFineArtPoster,
   renderFramedRoomMockup,
+  searchCatalogPresets,
   TARGET_PRESETS,
+  type TargetCategory,
   type TargetPreset,
 } from './hrPlot';
 
@@ -169,11 +171,24 @@ function ClusterCard({
   );
 }
 
+const CATEGORIES: Array<{ id: TargetCategory | 'All'; label: string }> = [
+  { id: 'All', label: 'All Targets' },
+  { id: 'Zodiac Constellation', label: '♈ Zodiac Signs' },
+  { id: 'Open Cluster', label: '✨ Open Clusters' },
+  { id: 'Globular Cluster', label: '🔮 Globular Clusters' },
+  { id: 'Solar Volume', label: '☉ Solar Bubble' },
+];
+
 /**
- * `/`: Home Page Grid View of all star clusters.
+ * `/`: Home Page Grid View of all star clusters and zodiac constellations.
  */
 function HomeView() {
   const [activeTheme, setActiveTheme] = useState<PosterThemeId>('two-maps');
+  const [activeCategory, setActiveCategory] = useState<TargetCategory | 'All'>('All');
+
+  const displayedPresets = useMemo(() => {
+    return searchCatalogPresets('', activeCategory);
+  }, [activeCategory]);
 
   return (
     <div className="site-wrapper">
@@ -183,8 +198,27 @@ function HomeView() {
             ✨ StarPlot <span className="header-badge">NASA 2MASS Collection</span>
           </h1>
           <p className="header-subtitle">
-            Fine-Art Astronomy Posters · 3 Curated Themes · {TARGET_PRESETS.length} Star Clusters
+            Astronomical Posters · 3 Curated Themes · {TARGET_PRESETS.length} Curated Targets
           </p>
+        </div>
+
+        <div className="home-theme-bar">
+          <span className="theme-bar-label">Category:</span>
+          <div className="theme-pills">
+            {CATEGORIES.map((cat) => {
+              const active = activeCategory === cat.id;
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  className={`theme-pill-btn ${active ? 'active' : ''}`}
+                  onClick={() => setActiveCategory(cat.id)}
+                >
+                  <strong>{cat.label}</strong>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <div className="home-theme-bar">
@@ -209,7 +243,7 @@ function HomeView() {
       </header>
 
       <main className="clusters-grid">
-        {TARGET_PRESETS.map((preset) => (
+        {displayedPresets.map((preset) => (
           <ClusterCard key={preset.id} preset={preset} themeId={activeTheme} />
         ))}
       </main>
