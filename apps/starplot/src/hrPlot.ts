@@ -740,9 +740,9 @@ export const TARGET_PRESETS: TargetPreset[] = [
   // 12 Zodiac Constellations
   {
     id: 'aries',
-    label: 'Aries (♈ The Ram)',
+    label: 'Aries (The Ram)',
     shortName: 'Aries',
-    catalogCode: '♈ ARIES',
+    catalogCode: 'IAU ARI',
     constellation: 'Aries',
     category: 'Zodiac Constellation',
     subtitle: 'Ancient zodiac constellation of the Golden Ram anchored by orange giant Hamal',
@@ -757,9 +757,9 @@ export const TARGET_PRESETS: TargetPreset[] = [
   },
   {
     id: 'taurus',
-    label: 'Taurus (♉ The Bull)',
+    label: 'Taurus (The Bull)',
     shortName: 'Taurus',
-    catalogCode: '♉ TAURUS',
+    catalogCode: 'IAU TAU',
     constellation: 'Taurus',
     category: 'Zodiac Constellation',
     subtitle: 'Prominent northern zodiac constellation anchored by brilliant red giant Aldebaran',
@@ -774,9 +774,9 @@ export const TARGET_PRESETS: TargetPreset[] = [
   },
   {
     id: 'gemini',
-    label: 'Gemini (♊ The Twins)',
+    label: 'Gemini (The Twins)',
     shortName: 'Gemini',
-    catalogCode: '♊ GEMINI',
+    catalogCode: 'IAU GEM',
     constellation: 'Gemini',
     category: 'Zodiac Constellation',
     subtitle: 'Twin stars Castor and Pollux spanning golden orange and icy white stellar evolution',
@@ -791,9 +791,9 @@ export const TARGET_PRESETS: TargetPreset[] = [
   },
   {
     id: 'cancer',
-    label: 'Cancer (♋ The Crab)',
+    label: 'Cancer (The Crab)',
     shortName: 'Cancer',
-    catalogCode: '♋ CANCER',
+    catalogCode: 'IAU CNC',
     constellation: 'Cancer',
     category: 'Zodiac Constellation',
     subtitle: 'Ancient zodiac constellation cradling the sparkling Beehive Cluster and orange giant Altarf',
@@ -808,9 +808,9 @@ export const TARGET_PRESETS: TargetPreset[] = [
   },
   {
     id: 'leo',
-    label: 'Leo (♌ The Lion)',
+    label: 'Leo (The Lion)',
     shortName: 'Leo',
-    catalogCode: '♌ LEO',
+    catalogCode: 'IAU LEO',
     constellation: 'Leo',
     category: 'Zodiac Constellation',
     subtitle: 'Majestic northern zodiac constellation featuring the Sickle and regal blue subgiant Regulus',
@@ -825,9 +825,9 @@ export const TARGET_PRESETS: TargetPreset[] = [
   },
   {
     id: 'virgo',
-    label: 'Virgo (♍ The Maiden)',
+    label: 'Virgo (The Maiden)',
     shortName: 'Virgo',
-    catalogCode: '♍ VIRGO',
+    catalogCode: 'IAU VIR',
     constellation: 'Virgo',
     category: 'Zodiac Constellation',
     subtitle: 'Largest zodiac constellation anchored by intense blue-white binary giant Spica',
@@ -842,9 +842,9 @@ export const TARGET_PRESETS: TargetPreset[] = [
   },
   {
     id: 'libra',
-    label: 'Libra (♎ The Scales)',
+    label: 'Libra (The Scales)',
     shortName: 'Libra',
-    catalogCode: '♎ LIBRA',
+    catalogCode: 'IAU LIB',
     constellation: 'Libra',
     category: 'Zodiac Constellation',
     subtitle: 'The celestial balance scales marked by rare emerald-blue dwarf Zubeneschamali',
@@ -859,9 +859,9 @@ export const TARGET_PRESETS: TargetPreset[] = [
   },
   {
     id: 'scorpius',
-    label: 'Scorpius (♏ The Scorpion)',
+    label: 'Scorpius (The Scorpion)',
     shortName: 'Scorpius',
-    catalogCode: '♏ SCORPIUS',
+    catalogCode: 'IAU SCO',
     constellation: 'Scorpius',
     category: 'Zodiac Constellation',
     subtitle: 'Dramatic celestial scorpion centered on colossal red supergiant Antares and the Sting',
@@ -876,9 +876,9 @@ export const TARGET_PRESETS: TargetPreset[] = [
   },
   {
     id: 'sagittarius',
-    label: 'Sagittarius (♐ The Archer)',
+    label: 'Sagittarius (The Archer)',
     shortName: 'Sagittarius',
-    catalogCode: '♐ SAGITTARIUS',
+    catalogCode: 'IAU SGR',
     constellation: 'Sagittarius',
     category: 'Zodiac Constellation',
     subtitle: 'Galactic core teapot asterism pointing into the luminous stellar heart of the Milky Way',
@@ -893,9 +893,9 @@ export const TARGET_PRESETS: TargetPreset[] = [
   },
   {
     id: 'capricornus',
-    label: 'Capricornus (♑ The Sea Goat)',
+    label: 'Capricornus (The Sea Goat)',
     shortName: 'Capricornus',
-    catalogCode: '♑ CAPRICORNUS',
+    catalogCode: 'IAU CAP',
     constellation: 'Capricornus',
     category: 'Zodiac Constellation',
     subtitle: 'Ancient southern zodiac constellation anchored by Deneb Algedi and multiple star Dabih',
@@ -910,9 +910,9 @@ export const TARGET_PRESETS: TargetPreset[] = [
   },
   {
     id: 'aquarius',
-    label: 'Aquarius (♒ The Water Bearer)',
+    label: 'Aquarius (The Water Bearer)',
     shortName: 'Aquarius',
-    catalogCode: '♒ AQUARIUS',
+    catalogCode: 'IAU AQR',
     constellation: 'Aquarius',
     category: 'Zodiac Constellation',
     subtitle: 'Celestial water bearer distinguished by rare luminous yellow supergiants Sadalsuud and Sadalmelik',
@@ -927,9 +927,9 @@ export const TARGET_PRESETS: TargetPreset[] = [
   },
   {
     id: 'pisces',
-    label: 'Pisces (♓ The Fishes)',
+    label: 'Pisces (The Fishes)',
     shortName: 'Pisces',
-    catalogCode: '♓ PISCES',
+    catalogCode: 'IAU PSC',
     constellation: 'Pisces',
     category: 'Zodiac Constellation',
     subtitle: 'Twin celestial fishes linked by cord star Alrescha at the vernal equinox',
@@ -2074,14 +2074,20 @@ export function generateClusterFallbackStars(preset: TargetPreset): GaiaStar[] {
       ra = baseRa + (r * Math.cos(angle)) / cosDec;
       dec = baseDec + r * Math.sin(angle);
     } else if (preset.category === 'Zodiac Constellation') {
-      // Natural constellation field distribution with anchor stars
-      const angle = rand() * 2 * Math.PI;
-      const r = Math.pow(rand(), 0.9) * radiusDeg;
-      ra = baseRa + (r * Math.cos(angle)) / cosDec;
-      dec = baseDec + r * Math.sin(angle);
-      // Brighten the first few stars to represent the prominent anchor stars of the zodiac constellation
-      if (idx < 3) {
-        photG -= (3.5 - idx * 0.8);
+      const ast = CONSTELLATION_ASTERISMS[preset.id];
+      if (ast && idx < ast.stars.length) {
+        const starDef = ast.stars[idx];
+        ra = baseRa + starDef.dra / cosDec;
+        dec = baseDec + starDef.ddec;
+        pt.bpRp = starDef.bpRp;
+        pt.absoluteMagG = starDef.absMag;
+        photG = pt.absoluteMagG + starDistMod;
+      } else {
+        // Natural constellation field distribution around anchor stars
+        const angle = rand() * 2 * Math.PI;
+        const r = Math.pow(rand(), 0.9) * radiusDeg;
+        ra = baseRa + (r * Math.cos(angle)) / cosDec;
+        dec = baseDec + r * Math.sin(angle);
       }
     } else {
       // Gaussian open cluster core dispersal
@@ -2126,15 +2132,21 @@ export function generateClusterFallbackStars(preset: TargetPreset): GaiaStar[] {
  * preventing duplicate catalog codes (e.g. avoids "M45 · M45 PLEIADES" -> "M45 · PLEIADES").
  */
 export function formatPosterTitle(preset: TargetPreset): string {
+  if (preset.category === 'Zodiac Constellation') {
+    return preset.shortName.toUpperCase();
+  }
+
   const code = preset.catalogCode?.trim();
   let name = preset.shortName?.trim();
 
+  const cleanCode = code ? code.replace(/^[^\w\s]+/, '').trim() : '';
+
   // If shortName starts with catalogCode (e.g. "M45 Pleiades" starts with "M45"), strip it
-  if (code && name && name.toLowerCase().startsWith(code.toLowerCase())) {
-    name = name.slice(code.length).replace(/^[\s·\-\:]+/, '').trim();
+  if (cleanCode && name && name.toLowerCase().startsWith(cleanCode.toLowerCase())) {
+    name = name.slice(cleanCode.length).replace(/^[\s·\-\:]+/, '').trim();
   }
 
-  if (code && name && code.toLowerCase() !== name.toLowerCase()) {
+  if (code && name && cleanCode.toLowerCase() !== name.toLowerCase()) {
     return `${code.toUpperCase()} · ${name.toUpperCase()}`;
   }
 
@@ -2248,6 +2260,249 @@ export function getClusterCutoutUrl(
   });
 }
 
+export interface AsterismStarDef {
+  name: string;
+  designation: string;
+  spectralType: string;
+  dra: number; // offset in degrees from preset center RA
+  ddec: number; // offset in degrees from preset center Dec
+  bpRp: number;
+  absMag: number;
+}
+
+export interface ConstellationAsterism {
+  id: string;
+  name: string;
+  stars: AsterismStarDef[];
+  lines: Array<[number, number]>; // Pairs of star indices to connect
+}
+
+export const CONSTELLATION_ASTERISMS: Record<string, ConstellationAsterism> = {
+  aries: {
+    id: 'aries',
+    name: 'Aries',
+    stars: [
+      { name: 'Hamal', designation: 'α Ari', spectralType: 'K2 III', dra: 0.0, ddec: 0.0, bpRp: 1.15, absMag: 0.48 },
+      { name: 'Sheratan', designation: 'β Ari', spectralType: 'A5 V', dra: -1.2, ddec: -0.7, bpRp: 0.18, absMag: 1.33 },
+      { name: 'Mesarthim', designation: 'γ Ari', spectralType: 'B9 V', dra: -2.1, ddec: -1.3, bpRp: -0.05, absMag: 0.8 },
+      { name: '41 Arietis', designation: 'c Ari', spectralType: 'B8 V', dra: 1.8, ddec: 1.4, bpRp: -0.1, absMag: 0.2 },
+    ],
+    lines: [
+      [0, 1],
+      [1, 2],
+      [0, 3],
+    ],
+  },
+  taurus: {
+    id: 'taurus',
+    name: 'Taurus',
+    stars: [
+      { name: 'Aldebaran', designation: 'α Tau', spectralType: 'K5 III', dra: 0.0, ddec: 0.0, bpRp: 1.54, absMag: -0.63 },
+      { name: 'Elnath', designation: 'β Tau', spectralType: 'B7 III', dra: 2.4, ddec: 3.2, bpRp: -0.13, absMag: -1.34 },
+      { name: 'Tianguan', designation: 'ζ Tau', spectralType: 'B2 IV', dra: 3.1, ddec: 1.1, bpRp: -0.21, absMag: -2.1 },
+      { name: 'Hyadum I', designation: 'γ Tau', spectralType: 'K0 III', dra: -0.9, ddec: -0.7, bpRp: 0.99, absMag: 0.28 },
+      { name: 'Ain', designation: 'ε Tau', spectralType: 'K0 III', dra: -0.6, ddec: 0.8, bpRp: 1.01, absMag: 0.27 },
+      { name: 'Alcyone', designation: 'η Tau', spectralType: 'B7 IIIe', dra: -2.8, ddec: 1.6, bpRp: -0.08, absMag: -2.6 },
+    ],
+    lines: [
+      [3, 0],
+      [0, 2],
+      [3, 4],
+      [4, 1],
+      [4, 5],
+    ],
+  },
+  gemini: {
+    id: 'gemini',
+    name: 'Gemini',
+    stars: [
+      { name: 'Pollux', designation: 'β Gem', spectralType: 'K0 III', dra: 0.0, ddec: 0.0, bpRp: 1.02, absMag: 1.09 },
+      { name: 'Castor', designation: 'α Gem', spectralType: 'A1 V', dra: -0.9, ddec: 1.8, bpRp: 0.04, absMag: 1.05 },
+      { name: 'Wasat', designation: 'δ Gem', spectralType: 'F0 IV', dra: -0.4, ddec: -1.6, bpRp: 0.35, absMag: 2.2 },
+      { name: 'Mebsuta', designation: 'ε Gem', spectralType: 'G8 Ib', dra: -2.2, ddec: 0.4, bpRp: 1.38, absMag: -4.1 },
+      { name: 'Alhena', designation: 'γ Gem', spectralType: 'A1.5 IV', dra: -1.4, ddec: -3.2, bpRp: 0.06, absMag: -0.6 },
+      { name: 'Tejat', designation: 'μ Gem', spectralType: 'M3 III', dra: -2.9, ddec: -0.8, bpRp: 1.65, absMag: -1.4 },
+    ],
+    lines: [
+      [0, 1],
+      [1, 3],
+      [3, 5],
+      [0, 2],
+      [2, 4],
+    ],
+  },
+  cancer: {
+    id: 'cancer',
+    name: 'Cancer',
+    stars: [
+      { name: 'Altarf', designation: 'β Cnc', spectralType: 'K4 III', dra: -1.2, ddec: -1.8, bpRp: 1.48, absMag: -1.2 },
+      { name: 'Acubens', designation: 'α Cnc', spectralType: 'A5m', dra: 1.4, ddec: -1.4, bpRp: 0.22, absMag: 1.6 },
+      { name: 'Asellus Australis', designation: 'δ Cnc', spectralType: 'K0 III', dra: 0.4, ddec: -0.2, bpRp: 1.08, absMag: 0.8 },
+      { name: 'Asellus Borealis', designation: 'γ Cnc', spectralType: 'A1 IV', dra: 0.2, ddec: 1.1, bpRp: 0.08, absMag: 1.2 },
+      { name: 'Iota Cancri', designation: 'ι Cnc', spectralType: 'G8 III', dra: -0.3, ddec: 2.3, bpRp: 0.92, absMag: 0.4 },
+    ],
+    lines: [
+      [4, 3],
+      [3, 2],
+      [2, 1],
+      [2, 0],
+    ],
+  },
+  leo: {
+    id: 'leo',
+    name: 'Leo',
+    stars: [
+      { name: 'Regulus', designation: 'α Leo', spectralType: 'B8 IV', dra: 0.0, ddec: -1.5, bpRp: -0.11, absMag: -0.52 },
+      { name: 'Algieba', designation: 'γ Leo', spectralType: 'K1 III', dra: 0.2, ddec: 0.8, bpRp: 1.18, absMag: -0.92 },
+      { name: 'Adhafera', designation: 'ζ Leo', spectralType: 'F0 III', dra: -0.5, ddec: 1.9, bpRp: 0.38, absMag: -0.35 },
+      { name: 'Rasalas', designation: 'μ Leo', spectralType: 'K2 III', dra: -1.8, ddec: 2.4, bpRp: 1.22, absMag: 0.8 },
+      { name: 'Zosma', designation: 'δ Leo', spectralType: 'A4 V', dra: 2.1, ddec: 1.1, bpRp: 0.16, absMag: 1.3 },
+      { name: 'Denebola', designation: 'β Leo', spectralType: 'A3 V', dra: 3.4, ddec: 0.2, bpRp: 0.12, absMag: 1.93 },
+      { name: 'Chertan', designation: 'θ Leo', spectralType: 'A2 V', dra: 1.8, ddec: -0.4, bpRp: 0.15, absMag: 1.55 },
+    ],
+    lines: [
+      [3, 2],
+      [2, 1],
+      [1, 0],
+      [0, 6],
+      [6, 4],
+      [4, 5],
+      [1, 4],
+    ],
+  },
+  virgo: {
+    id: 'virgo',
+    name: 'Virgo',
+    stars: [
+      { name: 'Spica', designation: 'α Vir', spectralType: 'B1 III-IV', dra: 0.0, ddec: 0.0, bpRp: -0.23, absMag: -3.55 },
+      { name: 'Porrima', designation: 'γ Vir', spectralType: 'F0 V', dra: -1.9, ddec: 1.8, bpRp: 0.36, absMag: 2.4 },
+      { name: 'Vindemiatrix', designation: 'ε Vir', spectralType: 'G8 III', dra: -1.0, ddec: 3.2, bpRp: 0.94, absMag: 0.37 },
+      { name: 'Heze', designation: 'ζ Vir', spectralType: 'A3 V', dra: 1.1, ddec: -0.4, bpRp: 0.12, absMag: 1.6 },
+      { name: 'Zavijava', designation: 'β Vir', spectralType: 'F9 V', dra: -3.1, ddec: 2.3, bpRp: 0.55, absMag: 3.4 },
+    ],
+    lines: [
+      [4, 1],
+      [1, 2],
+      [1, 0],
+      [0, 3],
+    ],
+  },
+  libra: {
+    id: 'libra',
+    name: 'Libra',
+    stars: [
+      { name: 'Zubeneschamali', designation: 'β Lib', spectralType: 'B8 V', dra: 0.7, ddec: 1.4, bpRp: -0.11, absMag: -0.84 },
+      { name: 'Zubenelgenubi', designation: 'α Lib', spectralType: 'A3 IV', dra: -1.0, ddec: -0.4, bpRp: 0.16, absMag: 0.88 },
+      { name: 'Brachium', designation: 'σ Lib', spectralType: 'M3.5 III', dra: 0.2, ddec: -1.7, bpRp: 1.62, absMag: -1.5 },
+      { name: 'Zubenelhakrabi', designation: 'γ Lib', spectralType: 'K0 III', dra: 1.6, ddec: 0.3, bpRp: 1.05, absMag: 0.56 },
+    ],
+    lines: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [3, 0],
+    ],
+  },
+  scorpius: {
+    id: 'scorpius',
+    name: 'Scorpius',
+    stars: [
+      { name: 'Antares', designation: 'α Sco', spectralType: 'M1.5 Iab', dra: 0.0, ddec: 0.0, bpRp: 1.83, absMag: -5.28 },
+      { name: 'Graffias', designation: 'β Sco', spectralType: 'B1 V', dra: -0.7, ddec: 2.1, bpRp: -0.22, absMag: -3.5 },
+      { name: 'Dschubba', designation: 'δ Sco', spectralType: 'B0.3 IV', dra: -1.0, ddec: 1.4, bpRp: -0.25, absMag: -3.8 },
+      { name: 'Pi Scorpii', designation: 'π Sco', spectralType: 'B1 V', dra: -1.2, ddec: 0.6, bpRp: -0.2, absMag: -2.8 },
+      { name: 'Wei', designation: 'ε Sco', spectralType: 'K2.5 III', dra: 0.6, ddec: -1.7, bpRp: 1.15, absMag: 0.78 },
+      { name: 'Sargas', designation: 'θ Sco', spectralType: 'F0 II', dra: 1.4, ddec: -2.7, bpRp: 0.41, absMag: -2.75 },
+      { name: 'Shaula', designation: 'λ Sco', spectralType: 'B2 IV', dra: 2.2, ddec: -2.1, bpRp: -0.22, absMag: -5.05 },
+      { name: 'Lesath', designation: 'υ Sco', spectralType: 'B2 IV', dra: 1.9, ddec: -2.0, bpRp: -0.2, absMag: -3.3 },
+    ],
+    lines: [
+      [1, 2],
+      [2, 3],
+      [2, 0],
+      [0, 4],
+      [4, 5],
+      [5, 6],
+      [6, 7],
+    ],
+  },
+  sagittarius: {
+    id: 'sagittarius',
+    name: 'Sagittarius',
+    stars: [
+      { name: 'Kaus Australis', designation: 'ε Sgr', spectralType: 'B9.5 III', dra: -0.5, ddec: -1.4, bpRp: -0.03, absMag: -1.41 },
+      { name: 'Kaus Media', designation: 'δ Sgr', spectralType: 'K3 III', dra: -0.8, ddec: -0.3, bpRp: 1.38, absMag: -2.14 },
+      { name: 'Kaus Borealis', designation: 'λ Sgr', spectralType: 'K0 IV', dra: -0.3, ddec: 0.8, bpRp: 1.02, absMag: 0.46 },
+      { name: 'Alnasl', designation: 'γ² Sgr', spectralType: 'K0 III', dra: -1.9, ddec: -0.5, bpRp: 1.05, absMag: 0.63 },
+      { name: 'Nunki', designation: 'σ Sgr', spectralType: 'B2.5 V', dra: 1.4, ddec: 0.5, bpRp: -0.21, absMag: -2.17 },
+      { name: 'Ascella', designation: 'ζ Sgr', spectralType: 'A2.5 V', dra: 1.5, ddec: -0.6, bpRp: 0.15, absMag: 0.42 },
+      { name: 'Hecatebolus', designation: 'τ Sgr', spectralType: 'K1 III', dra: 1.2, ddec: -1.3, bpRp: 1.1, absMag: 0.48 },
+    ],
+    lines: [
+      [3, 1],
+      [1, 2],
+      [2, 4],
+      [4, 5],
+      [5, 0],
+      [0, 1],
+      [0, 6],
+      [6, 5],
+    ],
+  },
+  capricornus: {
+    id: 'capricornus',
+    name: 'Capricornus',
+    stars: [
+      { name: 'Algedi', designation: 'α² Cap', spectralType: 'G8.5 III', dra: -2.2, ddec: 1.4, bpRp: 0.95, absMag: 0.49 },
+      { name: 'Dabih', designation: 'β Cap', spectralType: 'F8 V', dra: -1.9, ddec: 0.8, bpRp: 0.78, absMag: -1.96 },
+      { name: 'Deneb Algedi', designation: 'δ Cap', spectralType: 'A7m', dra: 2.1, ddec: -0.5, bpRp: 0.32, absMag: 2.49 },
+      { name: 'Nashira', designation: 'γ Cap', spectralType: 'A7m', dra: 1.6, ddec: -0.7, bpRp: 0.35, absMag: 1.62 },
+      { name: 'Baten Algiedi', designation: 'ω Cap', spectralType: 'M0 III', dra: 0.2, ddec: -1.6, bpRp: 1.52, absMag: -0.4 },
+    ],
+    lines: [
+      [0, 1],
+      [1, 4],
+      [4, 2],
+      [2, 3],
+      [0, 2],
+    ],
+  },
+  aquarius: {
+    id: 'aquarius',
+    name: 'Aquarius',
+    stars: [
+      { name: 'Sadalsuud', designation: 'β Aqr', spectralType: 'G0 Ib', dra: -1.1, ddec: -0.4, bpRp: 0.85, absMag: -3.47 },
+      { name: 'Sadalmelik', designation: 'α Aqr', spectralType: 'G2 Ib', dra: 0.3, ddec: 0.0, bpRp: 0.96, absMag: -3.88 },
+      { name: 'Sadachbia', designation: 'γ Aqr', spectralType: 'A0 V', dra: 1.0, ddec: -0.2, bpRp: 0.05, absMag: 1.2 },
+      { name: 'Ancha', designation: 'θ Aqr', spectralType: 'G8 III', dra: -0.2, ddec: -1.0, bpRp: 0.98, absMag: 1.42 },
+      { name: 'Skat', designation: 'δ Aqr', spectralType: 'A3 V', dra: 1.8, ddec: -1.8, bpRp: 0.12, absMag: 1.5 },
+    ],
+    lines: [
+      [0, 1],
+      [1, 2],
+      [1, 3],
+      [3, 4],
+    ],
+  },
+  pisces: {
+    id: 'pisces',
+    name: 'Pisces',
+    stars: [
+      { name: 'Alrescha', designation: 'α Psc', spectralType: 'A0p', dra: 0.0, ddec: 0.0, bpRp: 0.05, absMag: 0.8 },
+      { name: 'Fumalsamakah', designation: 'β Psc', spectralType: 'B6 Ve', dra: -2.4, ddec: -1.0, bpRp: -0.12, absMag: -0.8 },
+      { name: 'Torcular', designation: 'ο Psc', spectralType: 'K0 III', dra: -1.3, ddec: 0.9, bpRp: 1.02, absMag: 0.9 },
+      { name: 'Kullat Nunu', designation: 'η Psc', spectralType: 'G7 III', dra: -0.7, ddec: 1.8, bpRp: 0.94, absMag: 0.84 },
+      { name: 'Linteum', designation: 'δ Psc', spectralType: 'K5 III', dra: -1.1, ddec: 0.2, bpRp: 1.42, absMag: 0.4 },
+    ],
+    lines: [
+      [1, 4],
+      [4, 0],
+      [0, 2],
+      [2, 3],
+    ],
+  },
+};
+
 /**
  * Famous / bright stars catalog mapping for presets.
  * Highlights iconic named stars (e.g. Alcyone, Mirfak, κ Crucis, BM Scorpii, Sirius, Vega)
@@ -2261,6 +2516,85 @@ export interface FamousStarDef {
 }
 
 export const FAMOUS_CLUSTER_STARS: Record<string, FamousStarDef[]> = {
+  'aries': [
+    { name: 'Hamal', designation: 'α Ari', spectralType: 'K2 III', description: 'Orange giant anchor of Aries' },
+    { name: 'Sheratan', designation: 'β Ari', spectralType: 'A5 V', description: 'White metallic-line star' },
+    { name: 'Mesarthim', designation: 'γ Ari', spectralType: 'B9 V', description: 'Historic visual binary' },
+    { name: '41 Arietis', designation: 'c Ari', spectralType: 'B8 V', description: 'Hot blue-white dwarf' },
+  ],
+  'taurus': [
+    { name: 'Aldebaran', designation: 'α Tau', spectralType: 'K5 III', description: 'Brilliant red giant; Eye of the Bull' },
+    { name: 'Elnath', designation: 'β Tau', spectralType: 'B7 III', description: 'Luminous Northern Horn tip' },
+    { name: 'Tianguan', designation: 'ζ Tau', spectralType: 'B2 IV', description: 'Southern Horn tip binary' },
+    { name: 'Hyadum I', designation: 'γ Tau', spectralType: 'K0 III', description: 'Apex of the Hyades V-asterism' },
+    { name: 'Ain', designation: 'ε Tau', spectralType: 'K0 III', description: 'Northern Eye of Taurus' },
+  ],
+  'gemini': [
+    { name: 'Pollux', designation: 'β Gem', spectralType: 'K0 III', description: 'Golden evolved giant; exoplanet host' },
+    { name: 'Castor', designation: 'α Gem', spectralType: 'A1 V', description: 'Famous sextuple star system' },
+    { name: 'Alhena', designation: 'γ Gem', spectralType: 'A1.5 IV', description: 'Brilliant white subgiant' },
+    { name: 'Wasat', designation: 'δ Gem', spectralType: 'F0 IV', description: 'Subgiant at waist of Twins' },
+    { name: 'Mebsuta', designation: 'ε Gem', spectralType: 'G8 Ib', description: 'Luminous yellow supergiant' },
+  ],
+  'cancer': [
+    { name: 'Altarf', designation: 'β Cnc', spectralType: 'K4 III', description: 'Brightest star in Cancer' },
+    { name: 'Acubens', designation: 'α Cnc', spectralType: 'A5m', description: 'White metallic-line star; Southern Claw' },
+    { name: 'Asellus Australis', designation: 'δ Cnc', spectralType: 'K0 III', description: 'Southern Donkey star' },
+    { name: 'Asellus Borealis', designation: 'γ Cnc', spectralType: 'A1 IV', description: 'Northern Donkey star' },
+    { name: 'Iota Cancri', designation: 'ι Cnc', spectralType: 'G8 III', description: 'Golden giant binary' },
+  ],
+  'leo': [
+    { name: 'Regulus', designation: 'α Leo', spectralType: 'B8 IV', description: 'Heart of the Lion; rapidly rotating subgiant' },
+    { name: 'Algieba', designation: 'γ Leo', spectralType: 'K1 III', description: 'Magnificent golden binary giant' },
+    { name: 'Denebola', designation: 'β Leo', spectralType: 'A3 V', description: 'Lion Tail; debris disk star' },
+    { name: 'Zosma', designation: 'δ Leo', spectralType: 'A4 V', description: 'Hot white star on Lion back' },
+    { name: 'Adhafera', designation: 'ζ Leo', spectralType: 'F0 III', description: 'Bright giant in Sickle asterism' },
+  ],
+  'virgo': [
+    { name: 'Spica', designation: 'α Vir', spectralType: 'B1 III-IV', description: 'Brilliant blue-white binary giant' },
+    { name: 'Porrima', designation: 'γ Vir', spectralType: 'F0 V', description: 'Equal-brightness binary star' },
+    { name: 'Vindemiatrix', designation: 'ε Vir', spectralType: 'G8 III', description: 'Yellow giant Grape Gatherer' },
+    { name: 'Heze', designation: 'ζ Vir', spectralType: 'A3 V', description: 'White main sequence star' },
+    { name: 'Zavijava', designation: 'β Vir', spectralType: 'F9 V', description: 'Yellow-white dwarf' },
+  ],
+  'libra': [
+    { name: 'Zubeneschamali', designation: 'β Lib', spectralType: 'B8 V', description: 'Northern Claw; rare emerald-blue tint' },
+    { name: 'Zubenelgenubi', designation: 'α Lib', spectralType: 'A3 IV', description: 'Southern Claw; wide binocular double' },
+    { name: 'Brachium', designation: 'σ Lib', spectralType: 'M3.5 III', description: 'Pulsating red giant' },
+    { name: 'Zubenelhakrabi', designation: 'γ Lib', spectralType: 'K0 III', description: 'Yellow giant of the Balance' },
+  ],
+  'scorpius': [
+    { name: 'Antares', designation: 'α Sco', spectralType: 'M1.5 Iab', description: 'Colossal red supergiant; Heart of the Scorpion' },
+    { name: 'Shaula', designation: 'λ Sco', spectralType: 'B2 IV', description: 'Brilliant subgiant at the Stinger' },
+    { name: 'Sargas', designation: 'θ Sco', spectralType: 'F0 II', description: 'Luminous bright giant' },
+    { name: 'Dschubba', designation: 'δ Sco', spectralType: 'B0.3 IV', description: 'Forehead of the Scorpion; Be star' },
+    { name: 'Graffias', designation: 'β Sco', spectralType: 'B1 V', description: 'Multiple blue star at Northern Claw' },
+  ],
+  'sagittarius': [
+    { name: 'Kaus Australis', designation: 'ε Sgr', spectralType: 'B9.5 III', description: 'Southern Bow; brightest in Sagittarius' },
+    { name: 'Nunki', designation: 'σ Sgr', spectralType: 'B2.5 V', description: 'Ancient Babylonian sacred star; Vane of Teapot' },
+    { name: 'Ascella', designation: 'ζ Sgr', spectralType: 'A2.5 V', description: 'Armpit of Archer; binary system' },
+    { name: 'Kaus Media', designation: 'δ Sgr', spectralType: 'K3 III', description: 'Middle Bow; orange giant' },
+    { name: 'Alnasl', designation: 'γ² Sgr', spectralType: 'K0 III', description: 'Arrowhead / Spout of Teapot' },
+  ],
+  'capricornus': [
+    { name: 'Deneb Algedi', designation: 'δ Cap', spectralType: 'A7m', description: 'Tail of the Goat; eclipsing binary' },
+    { name: 'Dabih', designation: 'β Cap', spectralType: 'F8 V', description: 'Butcher star; multiple system' },
+    { name: 'Algedi', designation: 'α² Cap', spectralType: 'G8.5 III', description: 'Yellow giant optical double' },
+    { name: 'Nashira', designation: 'γ Cap', spectralType: 'A7m', description: 'Bearer of Good Tidings' },
+  ],
+  'aquarius': [
+    { name: 'Sadalsuud', designation: 'β Aqr', spectralType: 'G0 Ib', description: 'Luck of Lucks; rare yellow supergiant' },
+    { name: 'Sadalmelik', designation: 'α Aqr', spectralType: 'G2 Ib', description: 'Luck of the King; yellow supergiant' },
+    { name: 'Skat', designation: 'δ Aqr', spectralType: 'A3 V', description: 'The Shin; radiant of Delta Aquariids' },
+    { name: 'Sadachbia', designation: 'γ Aqr', spectralType: 'A0 V', description: 'Lucky Star of Hidden Things' },
+  ],
+  'pisces': [
+    { name: 'Alrescha', designation: 'α Psc', spectralType: 'A0p', description: 'The Cord Knot joining the two fishes' },
+    { name: 'Fumalsamakah', designation: 'β Psc', spectralType: 'B6 Ve', description: 'Mouth of the Western Fish' },
+    { name: 'Torcular', designation: 'ο Psc', spectralType: 'K0 III', description: 'Orange giant near the ribbon knot' },
+    { name: 'Kullat Nunu', designation: 'η Psc', spectralType: 'G7 III', description: 'Brightest star in Pisces; yellow giant' },
+  ],
   'pleiades': [
     { name: 'Alcyone', designation: 'η Tauri', spectralType: 'B7 IIIe', description: 'Brightest star in Pleiades' },
     { name: 'Atlas', designation: '27 Tauri', spectralType: 'B8 III', description: 'Father of the Pleiades' },
@@ -2377,6 +2711,101 @@ export function hexToRgba(hex: string, alpha: number): string {
   const g = parseInt(clean.substring(2, 4), 16) || 255;
   const b = parseInt(clean.substring(4, 6), 16) || 255;
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+/**
+ * Draws luminous constellation asterism stick-figure lines and anchor star reticles
+ * on fine-art posters for zodiac and curated constellations.
+ */
+export function drawConstellationAsterismLines(options: {
+  ctx: CanvasRenderingContext2D;
+  asterism: ConstellationAsterism;
+  astPoints: Array<{ skyX: number; skyY: number; star: AsterismStarDef }>;
+  badgeX?: number;
+  badgeY?: number;
+}): void {
+  const { ctx, asterism, astPoints, badgeX, badgeY } = options;
+
+  // 1. Constellation Badge Watermark
+  if (badgeX !== undefined && badgeY !== undefined) {
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.font = '700 36px "Inter", sans-serif';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.82)';
+    const badgeText = `${asterism.name.toUpperCase()} CONSTELLATION`;
+    ctx.fillText(badgeText, badgeX, badgeY);
+
+    ctx.font = '500 20px "JetBrains Mono", monospace';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.42)';
+    ctx.fillText('CELESTIAL ASTERISM & ANCHOR STARS', badgeX, badgeY + 34);
+    ctx.restore();
+  }
+
+  // 2. Luminous Asterism Stick-Figure Lines
+  ctx.save();
+  for (const [i1, i2] of asterism.lines) {
+    if (i1 < astPoints.length && i2 < astPoints.length) {
+      const p1 = astPoints[i1];
+      const p2 = astPoints[i2];
+
+      // Soft cyan starlight atmospheric glow
+      ctx.strokeStyle = 'rgba(147, 197, 253, 0.32)';
+      ctx.lineWidth = 6.0;
+      ctx.beginPath();
+      ctx.moveTo(p1.skyX, p1.skyY);
+      ctx.lineTo(p2.skyX, p2.skyY);
+      ctx.stroke();
+
+      // Crisp inner celestial cartography line
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.78)';
+      ctx.lineWidth = 2.0;
+      ctx.setLineDash([14, 7]);
+      ctx.beginPath();
+      ctx.moveTo(p1.skyX, p1.skyY);
+      ctx.lineTo(p2.skyX, p2.skyY);
+      ctx.stroke();
+    }
+  }
+  ctx.setLineDash([]);
+  ctx.restore();
+
+  // 3. Highlighted Anchor Star Nodes & Labels
+  for (const node of astPoints) {
+    ctx.save();
+    // Radial glow halo
+    const halo = ctx.createRadialGradient(node.skyX, node.skyY, 2, node.skyX, node.skyY, 36);
+    halo.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+    halo.addColorStop(0.3, 'rgba(147, 197, 253, 0.45)');
+    halo.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(node.skyX, node.skyY, 36, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Reticle ring
+    ctx.strokeStyle = 'rgba(147, 197, 253, 0.85)';
+    ctx.lineWidth = 2.0;
+    ctx.beginPath();
+    ctx.arc(node.skyX, node.skyY, 14, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Solid white core
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(node.skyX, node.skyY, 5.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Typography label
+    ctx.font = '700 24px "Inter", sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.fillText(node.star.name, node.skyX, node.skyY - 22);
+
+    ctx.font = '500 17px "JetBrains Mono", monospace';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+    ctx.fillText(node.star.designation, node.skyX, node.skyY - 4);
+    ctx.restore();
+  }
 }
 
 /**
@@ -2967,6 +3396,32 @@ export function renderTwoMapsPoster(options: {
     ctx.beginPath();
     ctx.arc(item.hrX, item.hrY, dotRadius, 0, Math.PI * 2);
     ctx.fill();
+  }
+
+  // Draw constellation asterism stick-figure lines and anchor star reticles in Sky Disc
+  const asterism =
+    CONSTELLATION_ASTERISMS[preset.id] ??
+    (preset.constellation ? CONSTELLATION_ASTERISMS[preset.constellation.toLowerCase()] : null);
+
+  if (asterism) {
+    const astPoints = asterism.stars.map((s) => {
+      const dx = (s.dra * cosDec) / radiusDeg;
+      const dy = s.ddec / radiusDeg;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const rClamped = dist <= 1 ? dist : 1 / (1 + (dist - 1) * 0.4);
+      const angle = Math.atan2(dy, dx);
+      const skyX = skyCenter.x + Math.cos(angle) * rClamped * (skyRadius - 40);
+      const skyY = skyCenter.y - Math.sin(angle) * rClamped * (skyRadius - 40);
+      return { skyX, skyY, star: s };
+    });
+
+    drawConstellationAsterismLines({
+      ctx,
+      asterism,
+      astPoints,
+      badgeX: skyCenter.x,
+      badgeY: skyCenter.y - skyRadius + 95,
+    });
   }
 
   // Highlighted bright star dots (radial halos, reticle rings, and white cores)

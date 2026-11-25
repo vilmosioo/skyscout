@@ -398,6 +398,12 @@ describe('fetchTargetStars Live Dispatch & Local Caching', () => {
 
     const m67 = TARGET_PRESETS.find((p) => p.id === 'm67')!;
     expect(formatPosterTitle(m67)).toBe('M67');
+
+    const virgo = TARGET_PRESETS.find((p) => p.id === 'virgo')!;
+    expect(formatPosterTitle(virgo)).toBe('VIRGO');
+
+    const aries = TARGET_PRESETS.find((p) => p.id === 'aries')!;
+    expect(formatPosterTitle(aries)).toBe('ARIES');
   });
 
   describe('3 Distinct Fine-Art Poster Themes', () => {

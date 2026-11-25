@@ -184,7 +184,7 @@ function ClusterCard({
 
 const CATEGORIES: Array<{ id: TargetCategory | 'All'; label: string }> = [
   { id: 'All', label: 'All Targets' },
-  { id: 'Zodiac Constellation', label: '♈ Zodiac Signs' },
+  { id: 'Zodiac Constellation', label: 'Zodiac Signs' },
   { id: 'Open Cluster', label: '✨ Open Clusters' },
   { id: 'Globular Cluster', label: '🔮 Globular Clusters' },
   { id: 'Solar Volume', label: '☉ Solar Bubble' },
