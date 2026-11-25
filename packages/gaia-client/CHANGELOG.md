@@ -1,5 +1,11 @@
 # @skyscout/gaia-client
 
+## 2.0.4
+
+### Patch Changes
+
+- 631234f: Remove fetch dependency injection, `this.fetch` properties, and unbound instance fetch getters across all API clients. Invoke web-standard global `fetch(...)` directly to eliminate browser `TypeError: Failed to execute 'fetch' on 'Window': Illegal invocation`.
+
 ## 2.0.3
 
 ### Patch Changes
